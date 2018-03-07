@@ -36,7 +36,7 @@ class simstate(object):
 
 class node(object):
     #define node class to describe host (servers, users and attackers)
-    def __init__(self, vulnum, vullevel, vulexplevel, vulexpaddress, ipbase, ippool, ip, port, os, servicetype, serviceplatform, nodeid, nodeworkingstate):
+    def __init__(self, vulnum, vullevel, vulexplevel, vulexpaddress, ipbase, ippool, ip, port, os, servicetype, serviceplatform, nodeid, nodeworkingstate, nodebackdoor):
         self.vulnum = vulnum
         self.vullevel = vullevel
         self.vulexplevel = vulexplevel
@@ -50,6 +50,7 @@ class node(object):
         self.serviceplatform = serviceplatform
         self.nodeid = nodeid
         self.nodeworkingstate = nodeworkingstate
+        self.nodebackdoor = nodebackdoor
 
 
 class topo(object):
@@ -80,7 +81,7 @@ def simini():
     ostype = ['Windows', 'Linux']
     servicetype = ['FTP', 'HTTP', 'Media']
     serviceplatform = {}
-    serviceplatform['FTP'] = ['MIT', 'IBM']
+    serviceplatform['FTP'] = ['FTP-MIT', 'FTP-IBM']
     serviceplatform['HTTP'] = ['IIS', 'Ngnix', 'Apache']
     serviceplatform['Media'] = ['Flash', 'Clint']
     vulleveltypes = ['C', 'S', 'V']
@@ -134,7 +135,7 @@ def nodesini(type, simstate):
             attnodeid = 'att' + str(attnum + 1)
             # the attacker node is set to '-1' since we can't know the attacker's state
             attnode = node(-1, -1, -1, -1, -1, -1, -1, -
-                           1, -1, -1, -1, attnodeid, 'up')
+                           1, -1, -1, -1, attnodeid, 'up', False)
             attnodelist.append(attnode)
             print('attnode No.%d of %d has been initialized! ' %
                   (attnum + 1, simstate.attackernum))
@@ -188,16 +189,16 @@ def nodesini(type, simstate):
                 # for Windows, the web service can be IIS, Ngnix and Apache
                 pass
             elif serveros == 'Linux':
-                serviceplatformlinux = simstate.nodeserviceplatform['HTTP'].remove(
-                    'IIS')
+                simstate.nodeserviceplatform['HTTP'].remove('IIS')
+                serviceplatformlinux = simstate.nodeserviceplatform['HTTP']
                 serverserviceplatform = serviceplatformlinux[round(
-                    random.uniform(0, len(serviceplatformlinux - 1)))]
+                    random.uniform(0, len(serviceplatformlinux) - 1))]
                 pass
             else:
                 print('Error Os type and service platform type, please check!')
                 pass
             servernode = node(servervulnum, servervullevel, servervulexplevel, servervulexpaddress,
-                              ipbase, -1, iniip, iniport, serveros, serverservicetype, serverserviceplatform, servernodeid, 'up')
+                              ipbase, -1, iniip, iniport, serveros, serverservicetype, serverserviceplatform, servernodeid, 'up', False)
             servernodelist.append(servernode)
             print('defnode No.%d of %d has been initialized! ' %
                   (servernum + 1, simstate.servernum))
@@ -210,7 +211,7 @@ def nodesini(type, simstate):
             usernodeid = 'user' + str(usernum + 1)
             # the user node is set to '-1' since we don't care the users' state
             usernode = node(-1, -1, -1, -1, -1, -1, -1, -
-                            1, -1, -1, -1, usernodeid, 'up')
+                            1, -1, -1, -1, usernodeid, 'up', False)
             usrnodelist.append(usernode)
             print('usrnode No.%d of %d has been initialized! ' %
                   (usernum + 1, simstate.usernum))
@@ -226,7 +227,10 @@ def sysplayerini(type):
     if type == 'att':
         # in this version, only cyber kill chain like attacke type is considered.
         # // DoS and other type of attack is under developed
-        attacker = sysplayer('CKC', 'CKC', 'low')
+        # for strategy CKC-C means need continuous C&C and CKC-D means need discrete C&C
+        # for objective, there are three type: Data Exfiltration, Network Spreading, System Disruption
+        # and in this version, only system disruption is under considerd.
+        attacker = sysplayer('CKC-C', 'Sys-Dis', 'low')
         return attacker
     elif type == 'def':
         defstrategy = ['ip', 'platform']
@@ -307,9 +311,10 @@ class attackermove(object):
         self.env = env
 
     def attaction(self, env):
+        attstrategy = attview['attackers'].strategy
         attobj = attview['attackers'].objective
         attabi = attview['attackers'].ability
-        attwinstate = self.attwinstateini(attobj)
+        attwinstate = self.attwinstateini(attstrategy)
         attzday = self.attabiini(attabi)
         attview['attackerwinstate'] = attwinstate
         attview['attackerzday'] = attzday
@@ -321,10 +326,14 @@ class attackermove(object):
             defview['topo'].usernum + defview['topo'].attackernum
         attstate['vulnodes'] = []
         attstate['vulnodes'] = self.attchecktarnodes(nodenum)
+        attstate['C&Ctype'] = attstrategy.split(
+            '-')[len(attstrategy.split('-')) - 1]
+        # for C&C time, 50 time step is a relative value.
+        attstate['C&Ctime'] = 50
         for vulnodesnum in range(len(attstate['vulnodes'])):
             vulnodeid = 'target_' + str(vulnodesnum + 1)
             vulnode = node(-1, -1, -1, -1, -1, -1, -1, -
-                           1, -1, -1, -1, vulnodeid, 'up')
+                           1, -1, -1, -1, vulnodeid, 'up', False)
             attview['targetnodes'].append(vulnode)
             pass
 
@@ -344,10 +353,10 @@ class attackermove(object):
         pass
 
     # initialize attacker's state，those states show when the attack can win the game
-    def attwinstateini(self, attobj):
+    def attwinstateini(self, attstrategy):
         attwinstate = {}
         #set the win state according to the attack objective
-        if attobj == 'CKC':
+        if attstrategy == 'CKC-C' or attstrategy == 'CKC-D':
             attwinstate['reconnaissance'] = False
             attwinstate['weapon'] = False
             attwinstate['delivery'] = False
@@ -356,7 +365,7 @@ class attackermove(object):
             attwinstate['C&C'] = False
             attwinstate['AoO'] = False
             return attwinstate
-        elif attobj == 'DoS':
+        elif attstrategy == 'DoS':
             attwinstate['reconnaissance'] = False
             attwinstate['C&C'] = False
             attwinstate['AoO'] = False
@@ -440,8 +449,13 @@ class attackermove(object):
             # print(attstate['vulnodes'][vulnodeindex].ip)
             if attstate['vulnodes'][vulnodeindex].ip == attstate['iniip'] or attstate['iniip'] == attview['targetnodes'][vulnodeindex].ip:
                 yield env.timeout(attackholdingtimes)
-                attview['targetnodes'][vulnodeindex] = node(attstate['vulnodes'][vulnodeindex].vulnum, attstate['vulnodes'][vulnodeindex].vullevel, attstate['vulnodes'][vulnodeindex].vulexplevel, attstate['vulnodes'][vulnodeindex].vulexpaddress, attstate['vulnodes'][vulnodeindex].ipbase, attstate['vulnodes'][vulnodeindex].ippool,
-                                                            attstate['vulnodes'][vulnodeindex].ip, attstate['vulnodes'][vulnodeindex].port, attstate['vulnodes'][vulnodeindex].os, attstate['vulnodes'][vulnodeindex].servicetype, attstate['vulnodes'][vulnodeindex].serviceplatform, attstate['vulnodes'][vulnodeindex].nodeid, attstate['vulnodes'][vulnodeindex].nodeworkingstate)
+                attview['targetnodes'][vulnodeindex] = node(attstate['vulnodes'][vulnodeindex].vulnum, attstate['vulnodes'][vulnodeindex].vullevel, 
+                                                            attstate['vulnodes'][vulnodeindex].vulexplevel, attstate['vulnodes'][vulnodeindex].vulexpaddress, 
+                                                            attstate['vulnodes'][vulnodeindex].ipbase, attstate['vulnodes'][vulnodeindex].ippool,
+                                                            attstate['vulnodes'][vulnodeindex].ip, attstate['vulnodes'][vulnodeindex].port, attstate['vulnodes'][vulnodeindex].os, 
+                                                            attstate['vulnodes'][vulnodeindex].servicetype, attstate['vulnodes'][vulnodeindex].serviceplatform, 
+                                                            attstate['vulnodes'][vulnodeindex].nodeid, attstate['vulnodes'][vulnodeindex].nodeworkingstate, 
+                                                            attstate['vulnodes'][vulnodeindex].nodebackdoor)
                 # in python, the global vers with list type only point to the vers with assignment, so to keep the global vers not change with local vers we have to
                 # 'new' a class and assignment to the global ver
                 attview['attackerwinstate']['reconnaissance'] = True
@@ -457,11 +471,13 @@ class attackermove(object):
 
     def att_weapon(self, env, attstate, attackholdingtimes):
         malwarecrafttime = []
-        malwarecraftplatform = []
+        malwarecraftos = []
+        malwarecraftserviceplatform = []
+        malwarecraftexpaddress = []
         for targetnode in attview['targetnodes']:
             weaponcrafttime = []
-            print('target node %s has %d vuls and vellevel is %s velexplevel is %s' % (
-                targetnode.nodeid, targetnode.vulnum, targetnode.vullevel, targetnode.vulexplevel))
+            print('target node %s has %d vuls and vullevel is %s vulexplevel is %s vulexpaddress is %s' % (
+                targetnode.nodeid, targetnode.vulnum, targetnode.vullevel, targetnode.vulexplevel, repr(targetnode.vulexpaddress)))
             for targetvul in range(targetnode.vulnum):
                 if targetnode.vulexplevel[targetvul] == 'E':
                     wct = 100
@@ -483,23 +499,30 @@ class attackermove(object):
                 attabi = attview['attackers'].ability
                 if attabi == 'low':
                     crafttime = max(weaponcrafttime)
+                    exploitaddress = targetnode.vulexpaddress[weaponcrafttime.index(
+                        crafttime)]
                     pass
-                elif attabi == 'medium':
-                    crafttime = int(
-                        (max(weaponcrafttime) + min(weaponcrafttime)) / 2)
-                    pass
+                # elif attabi == 'medium': # for medium attack ability, the exploition address is a problem so this part is not support in this version
+                #     crafttime = int(
+                #         (max(weaponcrafttime) + min(weaponcrafttime)) / 2)
+                #     pass
                 elif attabi == 'high':
                     crafttime = min(weaponcrafttime)
+                    exploitaddress = targetnode.vulexpaddress[weaponcrafttime.index(
+                        crafttime)]
                     pass
                 else:
                     print('Error attacker ability, please check!')
                     pass
             malwarecrafttime.append(crafttime)
-
-            malwarecraftplatform.append(targetnode.os)
+            malwarecraftos.append(targetnode.os)
+            malwarecraftserviceplatform.append(targetnode.serviceplatform)
+            malwarecraftexpaddress.append(exploitaddress)
             pass
         attview['malwarecrafttime'] = malwarecrafttime
-        attview['malwarecraftplatform'] = malwarecraftplatform
+        attview['malwarecraftos'] = malwarecraftos
+        attview['malwarecraftserviceplatform'] = malwarecraftserviceplatform
+        attview['malwarecraftexpaddress'] = malwarecraftexpaddress
         print('malware craft time is %s' % (repr(attview['malwarecrafttime'])))
         print('malware weapon craft start at time %d' % (env.now))
         # if have several assailable node, attack the most weak one(less malware craft time)
@@ -508,13 +531,19 @@ class attackermove(object):
         attview['attackerwinstate']['weapon'] = True
         malwaresave = {}
         malwaresave['malwarecrafttime'] = min(attview['malwarecrafttime'])
-        malwaresave['malwareplatform'] = attview['malwarecraftplatform'][attview['malwarecrafttime'].index(
+        malwaresave['malwarecraftserviceplatform'] = attview['malwarecraftserviceplatform'][attview['malwarecrafttime'].index(
+            min(attview['malwarecrafttime']))]
+        malwaresave['malwarecraftos'] = attview['malwarecraftos'][attview['malwarecrafttime'].index(
+            min(attview['malwarecrafttime']))]
+        malwaresave['malwarecraftexpaddress'] = attview['malwarecraftexpaddress'][attview['malwarecrafttime'].index(
             min(attview['malwarecrafttime']))]
         malwaresave['malwaretarget'] = attview['targetnodes'][attview['malwarecrafttime'].index(
             min(attview['malwarecrafttime']))]
         attview['malwaresave'] = malwaresave
         print('malware weapon craft end at time %d' % (env.now))
-        # print(attview['malwaresave']['malwareplatform'])
+        print('malware weapon state for target node %s are: os-type: %s, service-platform: %s, exploition-address: %d' %
+              (malwaresave['malwaretarget'].nodeid, malwaresave['malwarecraftos'], malwaresave['malwarecraftserviceplatform'], malwaresave['malwarecraftexpaddress']))
+        # print(attview['malwaresave']['malwarecraftserviceplatform'])
         pass
 
     def att_delivery(self, env, attstate, attackholdingtimes):
@@ -558,24 +587,165 @@ class attackermove(object):
         pass
 
     def att_exploition(self, env, attstate, attackholdingtimes):
-
-        attview['attackerwinstate']['exploition'] = True
-        print('exploition successed at time %d' % (env.now))
-        yield env.timeout(attackholdingtimes)
+        # print('target node vul exploition address is ')
+        # print(attview['targetnodes'][0].vulexpaddress)
+        for vulnode in attstate['vulnodes']:
+            if vulnode.nodeid == attview['malwaresave']['malwaretarget'].nodeid:
+                for targetnode in attview['targetnodes']:
+                    if targetnode.nodeid == attview['malwaresave']['malwaretarget'].nodeid:
+                        if targetnode.os == vulnode.os:
+                            if targetnode.serviceplatform == vulnode.serviceplatform:
+                                if attview['malwaresave']['malwarecraftexpaddress'] in vulnode.vulexpaddress:
+                                    if vulnode.nodeworkingstate == 'up':
+                                        print('malware exploition start at %d, target node id is %s, os is %s, service platform is %s, vuls address is %d' %
+                                              (env.now, targetnode.nodeid, targetnode.os, targetnode.serviceplatform, attview['malwaresave']['malwarecraftexpaddress']))
+                                        yield env.timeout(attackholdingtimes)
+                                        attview['attackerwinstate']['exploition'] = True
+                                        print(
+                                            'exploition successed at time %d' % (env.now))
+                                        pass
+                                    else:
+                                        print('target node %s is not online, exploition will try %d time step later!' % (
+                                            vulnode.nodeid, attackholdingtimes))
+                                        yield env.timeout(attackholdingtimes)
+                                        pass
+                                    pass
+                                else:
+                                    # this part will come soon!
+                                    print(
+                                        'target node using ASLR, exploition will try later!')
+                                    yield env.timeout(attackholdingtimes)
+                                    pass
+                                pass
+                            else:
+                                print(
+                                    'target node servie paltform is not match malware, reconnaissance and weapon craft will re-start soon')
+                                attview['attackerwinstate']['weapon'] = False
+                                attview['attackerwinstate']['reconnaissance'] = False
+                                attview['attackerwinstate']['delivery'] = False
+                                yield env.timeout(attackholdingtimes)
+                                pass
+                            pass
+                        else:
+                            print(
+                                'target node servie os type is not match malware, reconnaissance, weapon craft and delivery will re-start soon')
+                            attview['attackerwinstate']['weapon'] = False
+                            attview['attackerwinstate']['reconnaissance'] = False
+                            attview['attackerwinstate']['delivery'] = False
+                            yield env.timeout(attackholdingtimes)
+                            pass
+                        pass
+                    else:
+                        print('target node is not match exploition type!')
+                        pass
+                    pass
+            else:
+                print('vul node is not match exploition type!')
+                pass
+            pass
         pass
 
     def att_installation(self, env, attstate, attackholdingtimes):
-
-        attview['attackerwinstate']['installation'] = True
-        print('installation successed at time %d' % (env.now))
-        yield env.timeout(attackholdingtimes)
+        for vulnode in attstate['vulnodes']:
+            if vulnode.nodeid == attview['malwaresave']['malwaretarget'].nodeid:
+                for targetnode in attview['targetnodes']:
+                    if targetnode.nodeid == attview['malwaresave']['malwaretarget'].nodeid:
+                        if vulnode.nodeworkingstate == 'up':
+                            if targetnode.os == vulnode.os:
+                                print('Other malware intstallation start at %d, target node id is %s, os is %s, service platform is %s, vuls address is %d' %
+                                      (env.now, targetnode.nodeid, targetnode.os, targetnode.serviceplatform, attview['malwaresave']['malwarecraftexpaddress']))
+                                yield env.timeout(attackholdingtimes)
+                                attview['attackerwinstate']['installation'] = True
+                                defview['servernodes'][defview['servernodes'].index(vulnode)].nodebackdoor = True
+                                # print(defview['servernodes'].index(vulnode))
+                                print('installation successed at time %d, target node %s backdoor state is %s' %
+                                      (env.now,targetnode.nodeid,format(defview['servernodes'][defview['servernodes'].index(vulnode)].nodebackdoor, "")))
+                                pass
+                            else:
+                                print(
+                                'target node servie os type is not match malware, reconnaissance, weapon craft, delivery and exploition will re-start soon')
+                                attview['attackerwinstate']['weapon'] = False
+                                attview['attackerwinstate']['reconnaissance'] = False
+                                attview['attackerwinstate']['delivery'] = False
+                                attview['attackerwinstate']['exploition'] = False
+                                yield env.timeout(attackholdingtimes)
+                                pass
+                            pass
+                        else:
+                            print('target node %s is not online, installation will try %d time step later!' % (
+                                    vulnode.nodeid, attackholdingtimes))
+                            yield env.timeout(attackholdingtimes)
+                            pass
+                        pass
+                    else:
+                        print('target node is not match malware installation type!')
+                        pass
+                    pass
+            else:
+                print('vul node is not match malware installation type!')
+                pass
+            pass
+        pass
         pass
 
     def att_controlandcommand(self, env, attstate, attackholdingtimes):
+        # for C&C, only two types are considered. one is continuous C&C for several time step, another is discrete C&C for several time step
+        print('C&C type is %s, need C&C %d time steps' %
+              (attstate['C&Ctype'], attstate['C&Ctime']))
+        for vulnode in attstate['vulnodes']:
+            if vulnode.nodeid == attview['malwaresave']['malwaretarget'].nodeid:
+                for targetnode in attview['targetnodes']:
+                    if targetnode.nodeid == attview['malwaresave']['malwaretarget'].nodeid:
+                        if vulnode.nodeworkingstate == 'up':
+                            if vulnode.ip == targetnode.ip:
+                                if vulnode.nodebackdoor:
+                                    if attstate['C&Ctype'] == 'C':
+                                        print('Start C&C on target node %s at time %d for %d time steps' % (targetnode.nodeid, env.now, attstate['C&Ctime']))
+                                        yield env.timeout(attstate['C&Ctime'])
+                                        print('C&C successfully end at time %d'%(env.now))
+                                        pass
+                                    elif attstate['C&Ctype'] == 'D':
+                                        pass
+                                    else:
+                                        print('Error C&C type, please check!')
+                                        pass
+                                    pass
+                                else:
+                                    print(
+                                    'target node back door is not exist, reconnaissance, weapon craft, delivery, exploition and installation will re-start soon')
+                                    attview['attackerwinstate']['weapon'] = False
+                                    attview['attackerwinstate']['reconnaissance'] = False
+                                    attview['attackerwinstate']['delivery'] = False
+                                    attview['attackerwinstate']['exploition'] = False
+                                    attview['attackerwinstate']['installation'] = False
+                                    yield env.timeout(attackholdingtimes)
+                                    pass
+                                pass
+                            else:
+                                print('target node %s is not reachable in ip %d for real ip is %d, reconnaissance will re-start!' % 
+                                        (targetnode.nodeid,targetnode.ip,vulnode.ip))
+                                pass
+                        else:
+                            print('target node %s is not online, C&C will try %d time step later!' % (
+                                    vulnode.nodeid, attackholdingtimes))
+                            yield env.timeout(attackholdingtimes)
+                            pass
+                        pass
+                    else:
+                        print('target node is not match C&C!')
+                        pass
+                    pass
+            else:
+                print('vul node is not match C&C!')
+                pass
+            pass
+        pass
 
+
+
+        yield env.timeout(attackholdingtimes)
         attview['attackerwinstate']['C&C'] = True
         print('C&C successed at time %d' % (env.now))
-        yield env.timeout(attackholdingtimes)
         pass
 
     def att_attonobj(self, env, attstate, attackholdingtimes):
