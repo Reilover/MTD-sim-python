@@ -6,9 +6,13 @@ import numpy
 global attview
 global defview
 global usrview
+global interruptflags
+global interruptporc
 attview = {}
 defview = {}
 usrview = {}
+interruptflags = {}
+interruptporc = {}
 
 
 def get_keys(d, value):
@@ -109,7 +113,31 @@ def simini():
     defview['defenders'] = defenders
     attview['attackers'] = attackers
     # print(usrview['attnodes'][0].ip)
+    # setup interrupt flags to save offense, defense and user operation interrupts
+    interruptflags['def-off'] = interruptflagsinit('def-off')
+    interruptflags['off-usr'] = interruptflagsinit('off-usr')
+    interruptflags['def-usr'] = interruptflagsinit('def-usr')
     pass
+
+
+def interruptflagsinit(types):
+    interrupt = {}
+    if types == 'off-def' or types == 'def-off':
+        interrupt['ipmutation'] = False
+        interrupt['osmuation'] = False
+        interrupt['serviceplatformmuation'] = False
+        return interrupt
+    elif types == 'off-usr' or types == 'usr-off':
+        interrupt['DoS'] = False
+        return interrupt
+    elif types == 'usr-def' or types == 'def-usr':
+        interrupt['ipmutation'] = False
+        interrupt['osmuation'] = False
+        interrupt['serviceplatformmuation'] = False
+        return interrupt
+    else:
+        print('Error types of interrupt, return none please check!')
+        return interrupt
 
 
 def topoini(type, simstate):  # for this version, we consider the simple topo with 3 connective nodes
@@ -230,7 +258,7 @@ def sysplayerini(type):
         # for strategy CKC-C means need continuous C&C and CKC-D means need discrete C&C
         # for objective, there are three type: Data Exfiltration, Network Spreading, System Disruption
         # and in this version, only system disruption is under considerd.
-        attacker = sysplayer('CKC-C', 'Sys-Dis', 'low')
+        attacker = sysplayer('CKC-D', 'Sys-Dis', 'low')
         return attacker
     elif type == 'def':
         defstrategy = ['ip', 'platform']
@@ -259,7 +287,9 @@ def sysplayerini(type):
 class defendermove(object):
     def __init__(self, env):
         self.env = env
-        # self.action = env.process(self.ipmutation(env))
+        self.action = env.process(self.defaction(env))
+        # self.process = env.process(self.defaction(env))
+        # env.process(self.definterrupt(env,''))
 
     def defaction(self, env):
         ipfreq = defview['defenders'].objective['ipfreq']
@@ -295,6 +325,8 @@ class defendermove(object):
             print("Defender move node:%s ip address in ip_base: %d at %d(s) form ip_address_old: %d to ip_address_new: %d in ip_pool: %d" %
                   (defview['servernodes'][nodeindex].nodeid, ipbase, env.now, ipold, ipnew, ippool[0]))
         yield env.timeout(ipholdingtime)
+        #
+        yield env.process(self.definterrupt(env, 'ipmutation'))
 
     def portmutation(self, env):  # port muatation/hopping technique
         pass
@@ -305,10 +337,24 @@ class defendermove(object):
     def servicemutation(self, env):  # service muatation technique
         pass
 
+    def definterrupt(self, env, interrupttype):
+
+        if interrupttype == 'ipmutation':
+            interruptflags['def-off']['ipmutation'] = True
+            # print('Defense aciton %s interrupt! interrupt flag is %s'%(interrupttype,interruptflags['def-off']['ipmutation']))
+            yield env.timeout(0)
+            pass
+        else:
+            yield env.timeout(0)
+            pass
+        pass
+
 
 class attackermove(object):
     def __init__(self, env):
         self.env = env
+        self.action = env.process(self.attaction(env))
+        # self.att_controlandcommand_proc = env.process(self.att_controlandcommand(env, attstate, attackholdingtimes))
 
     def attaction(self, env):
         attstrategy = attview['attackers'].strategy
@@ -429,7 +475,10 @@ class attackermove(object):
             pass
         elif atttype == 'C&C':
             attackholdingtimes = 2
-            yield env.process(self.att_controlandcommand(env, attstate, attackholdingtimes))
+            att_controlandcommand_proc = env.process(
+                self.att_controlandcommand(env, attstate, attackholdingtimes))
+            interruptporc['att_controlandcommand_proc'] = att_controlandcommand_proc
+            yield att_controlandcommand_proc
             pass
         elif atttype == 'AoO':
             attackholdingtimes = 2
@@ -437,6 +486,29 @@ class attackermove(object):
             pass
         else:
             print('Error attack type, please check!!')
+            pass
+
+        pass
+
+    def attprocinterrupt(self, env, proc):
+        if interruptflags['def-off']['ipmutation']:
+            try:
+                proc
+            except NameError:
+                proc_exists = False
+            else:
+                proc_exists = True
+            print(
+                '--------defense ip muation interrupt offense at time %d --------' % (env.now))
+            # proc_exists = 'att_controlandcommand_proc' in locals() or 'att_controlandcommand_proc' in globals()
+            if proc_exists and proc.is_alive:
+                proc.interrupt('ipmutation')
+                pass
+            interruptflags['def-off']['ipmutation'] = False
+            yield env.timeout(1)
+            pass
+        else:
+            yield env.timeout(1)
             pass
         pass
 
@@ -449,12 +521,16 @@ class attackermove(object):
             # print(attstate['vulnodes'][vulnodeindex].ip)
             if attstate['vulnodes'][vulnodeindex].ip == attstate['iniip'] or attstate['iniip'] == attview['targetnodes'][vulnodeindex].ip:
                 yield env.timeout(attackholdingtimes)
-                attview['targetnodes'][vulnodeindex] = node(attstate['vulnodes'][vulnodeindex].vulnum, attstate['vulnodes'][vulnodeindex].vullevel, 
-                                                            attstate['vulnodes'][vulnodeindex].vulexplevel, attstate['vulnodes'][vulnodeindex].vulexpaddress, 
+                attview['targetnodes'][vulnodeindex] = node(attstate['vulnodes'][vulnodeindex].vulnum, attstate['vulnodes'][vulnodeindex].vullevel,
+                                                            attstate['vulnodes'][vulnodeindex].vulexplevel, attstate[
+                                                                'vulnodes'][vulnodeindex].vulexpaddress,
                                                             attstate['vulnodes'][vulnodeindex].ipbase, attstate['vulnodes'][vulnodeindex].ippool,
-                                                            attstate['vulnodes'][vulnodeindex].ip, attstate['vulnodes'][vulnodeindex].port, attstate['vulnodes'][vulnodeindex].os, 
-                                                            attstate['vulnodes'][vulnodeindex].servicetype, attstate['vulnodes'][vulnodeindex].serviceplatform, 
-                                                            attstate['vulnodes'][vulnodeindex].nodeid, attstate['vulnodes'][vulnodeindex].nodeworkingstate, 
+                                                            attstate['vulnodes'][vulnodeindex].ip, attstate['vulnodes'][
+                                                                vulnodeindex].port, attstate['vulnodes'][vulnodeindex].os,
+                                                            attstate['vulnodes'][vulnodeindex].servicetype, attstate[
+                                                                'vulnodes'][vulnodeindex].serviceplatform,
+                                                            attstate['vulnodes'][vulnodeindex].nodeid, attstate[
+                                                                'vulnodes'][vulnodeindex].nodeworkingstate,
                                                             attstate['vulnodes'][vulnodeindex].nodebackdoor)
                 # in python, the global vers with list type only point to the vers with assignment, so to keep the global vers not change with local vers we have to
                 # 'new' a class and assignment to the global ver
@@ -656,14 +732,15 @@ class attackermove(object):
                                       (env.now, targetnode.nodeid, targetnode.os, targetnode.serviceplatform, attview['malwaresave']['malwarecraftexpaddress']))
                                 yield env.timeout(attackholdingtimes)
                                 attview['attackerwinstate']['installation'] = True
-                                defview['servernodes'][defview['servernodes'].index(vulnode)].nodebackdoor = True
+                                defview['servernodes'][defview['servernodes'].index(
+                                    vulnode)].nodebackdoor = True
                                 # print(defview['servernodes'].index(vulnode))
                                 print('installation successed at time %d, target node %s backdoor state is %s' %
-                                      (env.now,targetnode.nodeid,format(defview['servernodes'][defview['servernodes'].index(vulnode)].nodebackdoor, "")))
+                                      (env.now, targetnode.nodeid, format(defview['servernodes'][defview['servernodes'].index(vulnode)].nodebackdoor, "")))
                                 pass
                             else:
                                 print(
-                                'target node servie os type is not match malware, reconnaissance, weapon craft, delivery and exploition will re-start soon')
+                                    'target node servie os type is not match malware, reconnaissance, weapon craft, delivery and exploition will re-start soon')
                                 attview['attackerwinstate']['weapon'] = False
                                 attview['attackerwinstate']['reconnaissance'] = False
                                 attview['attackerwinstate']['delivery'] = False
@@ -673,7 +750,7 @@ class attackermove(object):
                             pass
                         else:
                             print('target node %s is not online, installation will try %d time step later!' % (
-                                    vulnode.nodeid, attackholdingtimes))
+                                vulnode.nodeid, attackholdingtimes))
                             yield env.timeout(attackholdingtimes)
                             pass
                         pass
@@ -690,8 +767,8 @@ class attackermove(object):
 
     def att_controlandcommand(self, env, attstate, attackholdingtimes):
         # for C&C, only two types are considered. one is continuous C&C for several time step, another is discrete C&C for several time step
-        print('C&C type is %s, need C&C %d time steps' %
-              (attstate['C&Ctype'], attstate['C&Ctime']))
+        # print('C&C type is %s, need C&C %d time steps' %
+        #       (attstate['C&Ctype'], attstate['C&Ctime']))
         for vulnode in attstate['vulnodes']:
             if vulnode.nodeid == attview['malwaresave']['malwaretarget'].nodeid:
                 for targetnode in attview['targetnodes']:
@@ -699,12 +776,38 @@ class attackermove(object):
                         if vulnode.nodeworkingstate == 'up':
                             if vulnode.ip == targetnode.ip:
                                 if vulnode.nodebackdoor:
+                                    attstate['C&C-D'] = {}
                                     if attstate['C&Ctype'] == 'C':
-                                        print('Start C&C on target node %s at time %d for %d time steps' % (targetnode.nodeid, env.now, attstate['C&Ctime']))
-                                        yield env.timeout(attstate['C&Ctime'])
-                                        print('C&C successfully end at time %d'%(env.now))
-                                        pass
+                                        try:
+                                            print('C&C type is %s. Start C&C on target node %s at time %d for continuous %d time steps' %
+                                                  (attstate['C&Ctype'],targetnode.nodeid, env.now, attstate['C&Ctime']))
+                                            yield env.timeout(attstate['C&Ctime'])
+                                            attview['attackerwinstate']['C&C'] = True
+                                            print(
+                                                'C&C successfully end at time %d' % (env.now))
+                                        except simpy.Interrupt:
+                                            print(
+                                                '!!!!!! C&C is interrupted at time %d !!!!!!!' % (env.now))
+                                            yield env.timeout(1)
                                     elif attstate['C&Ctype'] == 'D':
+                                        
+                                        try:
+                                            print('C&C type is %s. Start C&C on target node %s at time %d for continuous %d time steps' %
+                                                  (attstate['C&Ctype'],targetnode.nodeid, env.now, attstate['C&Ctime']))
+                                            attstate['C&C-D']['starttime'] = env.now
+                                            yield env.timeout(attstate['C&Ctime'])
+                                            attview['attackerwinstate']['C&C'] = True
+                                            print(
+                                                'C&C successfully end at time %d' % (env.now))
+                                            pass
+                                        except simpy.Interrupt:
+                                            attstate['C&C-D']['interrrupttime'] = env.now
+                                            attstate['C&C-D']['timeleft'] = attstate['C&Ctime'] - (attstate['C&C-D']['interrrupttime'] - attstate['C&C-D']['starttime'])
+                                            attstate['C&Ctime'] = attstate['C&C-D']['timeleft']
+                                            print(
+                                                '!!!!!! C&C is interrupted at time %d and need %d time step left to C&C !!!!' % (env.now,attstate['C&Ctime']))
+                                            yield env.timeout(1)
+                                            pass
                                         pass
                                     else:
                                         print('Error C&C type, please check!')
@@ -712,7 +815,7 @@ class attackermove(object):
                                     pass
                                 else:
                                     print(
-                                    'target node back door is not exist, reconnaissance, weapon craft, delivery, exploition and installation will re-start soon')
+                                        'target node back door is not exist, reconnaissance, weapon craft, delivery, exploition and installation will re-start soon')
                                     attview['attackerwinstate']['weapon'] = False
                                     attview['attackerwinstate']['reconnaissance'] = False
                                     attview['attackerwinstate']['delivery'] = False
@@ -722,12 +825,14 @@ class attackermove(object):
                                     pass
                                 pass
                             else:
-                                print('target node %s is not reachable in ip %d for real ip is %d, reconnaissance will re-start!' % 
-                                        (targetnode.nodeid,targetnode.ip,vulnode.ip))
+                                print('target node %s is not reachable at time %d in ip %d for real ip is %d, reconnaissance will re-start!' %
+                                      (targetnode.nodeid, env.now, targetnode.ip, vulnode.ip))
+                                attview['attackerwinstate']['reconnaissance'] = False
+                                yield env.timeout(attackholdingtimes)
                                 pass
                         else:
                             print('target node %s is not online, C&C will try %d time step later!' % (
-                                    vulnode.nodeid, attackholdingtimes))
+                                vulnode.nodeid, attackholdingtimes))
                             yield env.timeout(attackholdingtimes)
                             pass
                         pass
@@ -740,13 +845,7 @@ class attackermove(object):
                 pass
             pass
         pass
-
-
-
-        yield env.timeout(attackholdingtimes)
-        attview['attackerwinstate']['C&C'] = True
-        print('C&C successed at time %d' % (env.now))
-        pass
+    pass
 
     def att_attonobj(self, env, attstate, attackholdingtimes):
 
@@ -755,8 +854,50 @@ class attackermove(object):
         yield env.timeout(attackholdingtimes)
         pass
 
-# class usermove(object):
-#     pass
+
+class usermove(object):
+    def __init__(self, env):
+        self.env = env
+        pass
+    pass
+
+
+class interruptmove(object):
+    def __init__(self, env, defmove, attmove, usrmove):
+        self.env = env
+        self.defmove = defmove
+        self.attmove = attmove
+        self.usrmove = usrmove
+        pass
+
+    def sysplayerinterrupt(self, env, defmove, attmove, usrmove):
+        while True:
+            # print(repr(interruptflags))
+            if interruptflags['def-off']['ipmutation']:
+                print(
+                    '+++++++defense ip muation interrupt offense at time %d +++++++++' % (env.now))
+                if 'att_controlandcommand_proc' in interruptporc:
+                    proc = interruptporc['att_controlandcommand_proc']
+                    if proc.is_alive:
+                        interruptflags['def-off']['ipmutation'] = False
+                        proc.interrupt('ipmutation')
+                        pass
+                    else:
+                        yield env.timeout(1)
+                        pass
+                    pass
+                else:
+                    yield env.timeout(1)
+                    pass
+                interruptflags['def-off']['ipmutation'] = False
+                yield env.timeout(1)
+                pass
+            else:
+                yield env.timeout(1)
+                pass
+            pass
+        pass
+    pass
 
 
 #initailize the simulation
@@ -769,6 +910,9 @@ print('MTD offense and defense is going to START!')
 env = simpy.Environment()
 defmove = defendermove(env)
 attmove = attackermove(env)
-env.process(defmove.defaction(env))
-env.process(attmove.attaction(env))
+usrmove = usermove(env)
+interruptflag = interruptmove(env, defmove, attmove, usrmove)
+# env.process(defmove.defaction(env))
+# env.process(attmove.attaction(env))
+env.process(interruptflag.sysplayerinterrupt(env, defmove, attmove, usrmove))
 env.run(until=None)
