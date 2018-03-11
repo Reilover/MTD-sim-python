@@ -8,11 +8,13 @@ global defview
 global usrview
 global interruptflags
 global interruptporc
+global datatosave
 attview = {}
 defview = {}
 usrview = {}
 interruptflags = {}
 interruptporc = {}
+datatosave = {}
 
 
 def get_keys(d, value):
@@ -40,7 +42,7 @@ class simstate(object):
 
 class node(object):
     #define node class to describe host (servers, users and attackers)
-    def __init__(self, vulnum, vullevel, vulexplevel, vulexpaddress, ipbase, ippool, ip, port, os, servicetype, serviceplatform, nodeid, nodeworkingstate, nodebackdoor):
+    def __init__(self, vulnum, vullevel, vulexplevel, vulexpaddress, ipbase, ippool, ip, port, os, servicetype, serviceplatform, nodeid, nodeworkingstate, nodebackdoor, nodedeftype):
         self.vulnum = vulnum
         self.vullevel = vullevel
         self.vulexplevel = vulexplevel
@@ -55,6 +57,7 @@ class node(object):
         self.nodeid = nodeid
         self.nodeworkingstate = nodeworkingstate
         self.nodebackdoor = nodebackdoor
+        self.nodedeftype = nodedeftype
 
 
 class topo(object):
@@ -85,7 +88,7 @@ def simini():
     ostype = ['Windows', 'Linux']
     servicetype = ['FTP', 'HTTP', 'Media']
     serviceplatform = {}
-    serviceplatform['FTP'] = ['FTP-MIT', 'FTP-IBM']
+    serviceplatform['FTP'] = ['FTP-MIT', 'FTP-IBM', 'FTP-Stanford']
     serviceplatform['HTTP'] = ['IIS', 'Ngnix', 'Apache']
     serviceplatform['Media'] = ['Flash', 'Clint']
     vulleveltypes = ['C', 'S', 'V']
@@ -100,9 +103,9 @@ def simini():
     #finally, the topology is initialized and without this only point to point simulaiton can be done.
     simtopo = topoini('simple', Simulationstate)
     #add system players into simulation
-    attackers = sysplayerini('att')
-    defenders = sysplayerini('def')
-    systemusers = sysplayerini('usr')
+    attackers = sysplayerini('att', Simulationstate)
+    defenders = sysplayerini('def', Simulationstate)
+    systemusers = sysplayerini('usr', Simulationstate)
     #save nodes, topology and players to defview, usrview and attview
     attview['attnodes'] = attackernodes
     defview['servernodes'] = servernodes
@@ -124,16 +127,16 @@ def interruptflagsinit(types):
     interrupt = {}
     if types == 'off-def' or types == 'def-off':
         interrupt['ipmutation'] = False
-        interrupt['osmuation'] = False
-        interrupt['serviceplatformmuation'] = False
+        interrupt['osmutation'] = False
+        interrupt['serviceplatformmutation'] = False
         return interrupt
     elif types == 'off-usr' or types == 'usr-off':
         interrupt['DoS'] = False
         return interrupt
     elif types == 'usr-def' or types == 'def-usr':
         interrupt['ipmutation'] = False
-        interrupt['osmuation'] = False
-        interrupt['serviceplatformmuation'] = False
+        interrupt['osmutation'] = False
+        interrupt['serviceplatformmutation'] = False
         return interrupt
     else:
         print('Error types of interrupt, return none please check!')
@@ -163,7 +166,7 @@ def nodesini(type, simstate):
             attnodeid = 'att' + str(attnum + 1)
             # the attacker node is set to '-1' since we can't know the attacker's state
             attnode = node(-1, -1, -1, -1, -1, -1, -1, -
-                           1, -1, -1, -1, attnodeid, 'up', False)
+                           1, -1, -1, -1, attnodeid, 'up', False, [])
             attnodelist.append(attnode)
             print('attnode No.%d of %d has been initialized! ' %
                   (attnum + 1, simstate.attackernum))
@@ -225,8 +228,12 @@ def nodesini(type, simstate):
             else:
                 print('Error Os type and service platform type, please check!')
                 pass
+            nodeworkingstate = 'up'
+            nodebackdoor = False
+            nodedeftype = ['ipmutation', 'osmutation',
+                           'serviceplatformmutation', 'ASLR']
             servernode = node(servervulnum, servervullevel, servervulexplevel, servervulexpaddress,
-                              ipbase, -1, iniip, iniport, serveros, serverservicetype, serverserviceplatform, servernodeid, 'up', False)
+                              ipbase, -1, iniip, iniport, serveros, serverservicetype, serverserviceplatform, servernodeid, nodeworkingstate, nodebackdoor, nodedeftype)
             servernodelist.append(servernode)
             print('defnode No.%d of %d has been initialized! ' %
                   (servernum + 1, simstate.servernum))
@@ -239,7 +246,7 @@ def nodesini(type, simstate):
             usernodeid = 'user' + str(usernum + 1)
             # the user node is set to '-1' since we don't care the users' state
             usernode = node(-1, -1, -1, -1, -1, -1, -1, -
-                            1, -1, -1, -1, usernodeid, 'up', False)
+                            1, -1, -1, -1, usernodeid, 'up', False, [])
             usrnodelist.append(usernode)
             print('usrnode No.%d of %d has been initialized! ' %
                   (usernum + 1, simstate.usernum))
@@ -251,7 +258,7 @@ def nodesini(type, simstate):
     pass
 
 
-def sysplayerini(type):
+def sysplayerini(type, simstate):
     if type == 'att':
         # in this version, only cyber kill chain like attacke type is considered.
         # // DoS and other type of attack is under developed
@@ -261,17 +268,45 @@ def sysplayerini(type):
         attacker = sysplayer('CKC-D', 'Sys-Dis', 'low')
         return attacker
     elif type == 'def':
-        defstrategy = ['ip', 'platform']
+        defstrategy = ['ipmutation', 'osmutation', 'serviceplatformmutation']
         defobjective = {}
         defobjective['ippool'] = [20, 100, 200]
         defobjective['portpool'] = [200, 1000, 5000]
-        defobjective['ospool'] = 2
-        defobjective['servicepool'] = 3
+        defobjective['ospool'] = simstate.nodeostypes  # Windows and Linux
+        defobjective['servicepool'] = {}
+        for ostype in simstate.nodeostypes:
+            if ostype == 'Windows':
+                defobjective['servicepool']['Windows'] = {}
+                # print(simstate.nodeserviceplatform['HTTP'])
+                defobjective['servicepool']['Windows']['HTTP'] = (
+                    simstate.nodeserviceplatform['HTTP'])
+                defobjective['servicepool']['Windows']['FTP'] = (
+                    simstate.nodeserviceplatform['FTP'])
+                defobjective['servicepool']['Windows']['Media'] = (
+                    simstate.nodeserviceplatform['Media'])
+                pass
+            elif ostype == 'Linux':
+                defobjective['servicepool']['Linux'] = {}
+                # print(simstate.nodeserviceplatform['HTTP'])
+                defobjective['servicepool']['Linux']['HTTP'] = (
+                    simstate.nodeserviceplatform['HTTP'])
+                defobjective['servicepool']['Linux']['FTP'] = (
+                    simstate.nodeserviceplatform['FTP'])
+                defobjective['servicepool']['Linux']['Media'] = (
+                    simstate.nodeserviceplatform['Media'])
+                pass
+            # elif ostype == 'Unix':
+            else:
+                print('os type error, pleast check!')
+                pass
+            pass
+        # print(defobjective['servicepool']['Linux']['HTTP'])
+
         defobjective['ipfreq'] = [10, 100, 300]  # ip change frequency (s)
         defobjective['portfreq'] = [10, 120, 300]  # port chagne frequency (s)
         # service chagne frequency (s)
-        defobjective['servicefreq'] = [60, 300, 1200]
-        defobjective['osfreq'] = [120, 540, 1200]  # OS chagne frequency (s)
+        defobjective['servicefreq'] = [150, 300, 1200]
+        defobjective['osfreq'] = [150, 600, 1200]  # OS chagne frequency (s)
         defender = sysplayer(defstrategy, defobjective, -1)
         return defender
     elif type == 'usr':
@@ -295,54 +330,168 @@ class defendermove(object):
         ipfreq = defview['defenders'].objective['ipfreq']
         portfreq = defview['defenders'].objective['portfreq']
         osfreq = defview['defenders'].objective['osfreq']
-        servicefreq = defview['defenders'].objective['servicefreq']
+        serviceplatformfreq = defview['defenders'].objective['servicefreq']
+        defstate = {}  # saving defense states
+        # initializing need to act defense\
+        defstate['needdoneact'] = {}
+        defstate['needdoneact']['ipmutation'] = False
+        defstate['needdoneact']['osmutation'] = False
+        defstate['needdoneact']['portmutation'] = False
+        defstate['needdoneact']['serviceplatformmutation'] = False
+        # initializing action frequency or period, trigger point is offer in next version
+        defstate['ipfreq'] = ipfreq[1]
+        defstate['portfreq'] = portfreq[1]
+        defstate['osfreq'] = osfreq[0]
+        defstate['serviceplatformfreq'] = serviceplatformfreq[0]
+        # initializing defense action holding time
+        defstate['defholdingtime'] = {}
         while True:
-            #we consider the muation with small pool and high frequency
-            if env.now % ipfreq[1] == 0:
-                ipholdingtime = 3
-                yield env.process(self.ipmutation(env, ipholdingtime))
-                # print(defview['topo'].linkmatrix[defview['topo'].servernum+defview['topo'].usernum+defview['topo'].attackernum-1])
-            # elif env.now%osfreq[0] == 0: #
+            needdoneact = self.defactioncheck(env, defstate)
+            if len(needdoneact) > 0:
+                # print('++++++ defender need done action at time %d including: %s ++++++' %
+                #       (env.now, repr(needdoneact)))
+                yield env.process(self.defonce(env, needdoneact, defstate))
+                pass
+            # #we consider the mutation with small pool and high frequency
+            # # test = 100%200
+            # if env.now % ipfreq[1] == 0:
+            #     ipholdingtime = 3
+            #     yield env.process(self.ipmutation(env, ipholdingtime, defstate))
+            #     # print(defview['topo'].linkmatrix[defview['topo'].servernum+defview['topo'].usernum+defview['topo'].attackernum-1])
+            # # elif env.now%portfreq[0] == 0:
+            # #     pass
+            # # print(env.now%osfreq[0])
+            # if env.now%osfreq[0] == 0: #
+            #     osholdingtime = 5
+            #     yield env.process(self.osmutation(env, osholdingtime, defstate))
             #     pass
-            # elif env.now%servicefreq[0] == 0:
-            #     pass
-            else:
-                defactiontime = 1
-                yield env.timeout(defactiontime)
+
+            defactiontime = 1
+            yield env.timeout(defactiontime)
         pass
 
-    def ipmutation(self, env, ipholdingtime):  # ip muatation/hopping technique
+    # given the env time and defense states to set need done action flags and return need done action list
+    def defactioncheck(self, env, defstate):
+        if env.now % defstate['ipfreq'] == 0 and env.now != 0:
+            defstate['needdoneact']['ipmutation'] = True
+            pass
+        if env.now % defstate['portfreq'] == 0 and env.now != 0:
+            # defstate['needdoneact']['portmutation'] = True
+            pass
+        if env.now % defstate['osfreq'] == 0 and env.now != 0:
+            defstate['needdoneact']['osmutation'] = True
+            pass
+        if env.now % defstate['serviceplatformfreq'] == 0 and env.now != 0:
+            # defstate['needdoneact']['serviceplatformmutation'] = True
+            pass
+        needdoneact = get_keys(defstate['needdoneact'], True)
+        return needdoneact
+
+    def defonce(self, env, deftype, defstate):
+        deftypeset = set(deftype)
+        ipportset = ['ipmutation', 'portmutation']
+        ipportset = set(ipportset)
+        iposset = ['ipmutation', 'osmutation']
+        iposset = set(iposset)
+        ipserviceplatform = ['ipmutation', 'serviceplatformmutation']
+        ipserviceplatform = set(ipserviceplatform)
+        if 'ipmutation' in deftype and len(deftype) == 1:
+            ipholdingtime = 3
+            yield env.process(self.ipmutation(env, ipholdingtime, defstate))
+            pass
+        elif 'protmutation' in deftype and len(deftype) == 1:
+            pass
+        elif 'osmutation' in deftype and len(deftype) == 1:
+            # print('----os type need move----')
+            osholdingtime = 5
+            yield env.process(self.osmutation(env, osholdingtime, defstate))
+            pass
+        elif 'serviceplatformmutation' in deftype and len(deftype) == 1:
+            pass
+        elif ipportset.issubset(deftypeset) and len(deftype) == 2:
+            pass
+        elif iposset.issubset(deftypeset) and len(deftype) == 2:
+            ipholdingtime = 3
+            osholdingtime = 5
+            yield env.process(self.ipmutation(env, ipholdingtime, defstate))
+            yield env.process(self.osmutation(env, osholdingtime, defstate))
+            pass
+        else:
+            print('++++++ Error defense type, please check! ++++++')
+            pass
+        pass
+
+    def deftypesetinit(self):
+        pass
+
+    def ipmutation(self, env, ipholdingtime, defstate):  # ip muatation/hopping technique
+        #
         ippool = defview['defenders'].objective['ippool']
         # print(env.now % ipfreq[0])
         for nodeindex in range(len(defview['servernodes'])):
-            ipbase = defview['servernodes'][nodeindex].ipbase
-            ipold = defview['servernodes'][nodeindex].ip
-            ipnew = ipbase + round(random.uniform(1, ippool[0]))
-            if ipnew >= 256:
-                ipnew = ipnew - 256
+            if 'ipmutation' in defview['servernodes'][nodeindex].nodedeftype:
+                ipbase = defview['servernodes'][nodeindex].ipbase
+                ipold = defview['servernodes'][nodeindex].ip
+                ipnew = ipbase + round(random.uniform(1, ippool[0]))
+                if ipnew >= 256:
+                    ipnew = ipnew - 256
+                pass
+                defview['servernodes'][nodeindex].ip = ipnew
+                print("++++++ Defender move node: %s ip address in ip_base: %d at time: %d form ip_address_old: %d to ip_address_new: %d in ip_pool: %d ++++++" %
+                      (defview['servernodes'][nodeindex].nodeid, ipbase, env.now, ipold, ipnew, ippool[0]))
+                # yield env.timeout(ipholdingtime)
+                defstate['needdoneact']['ipmutation'] = False
+                # when ip mutation successed, cause an interruption which will catch by the attacker move and cause an expection as well.
+                yield env.process(self.definterrupt(env, ipholdingtime, 'ipmutation'))
+                pass
+            else:
+                print('++++++ Node %s does not enable IP mutation defense! ++++++')
+                yield env.timeout(1)
+                pass
             pass
-            defview['servernodes'][nodeindex].ip = ipnew
-            print("Defender move node:%s ip address in ip_base: %d at %d(s) form ip_address_old: %d to ip_address_new: %d in ip_pool: %d" %
-                  (defview['servernodes'][nodeindex].nodeid, ipbase, env.now, ipold, ipnew, ippool[0]))
-        yield env.timeout(ipholdingtime)
-        #
-        yield env.process(self.definterrupt(env, 'ipmutation'))
 
-    def portmutation(self, env):  # port muatation/hopping technique
+    # port muatation/hopping technique
+    def portmutation(self, env, portholdingtime, defstate):
         pass
 
-    def osmutation(self, env):  # Os muatation technique
+    def osmutation(self, env, osholdingtime, defstate):  # Os muatation technique
+        ospool = defview['defenders'].objective['ospool']
+        # print('++++++ Os mutation pool is %s ++++++' % (repr(ospool)))
+        for nodeindex in range(len(defview['servernodes'])):
+            if 'osmutation' in defview['servernodes'][nodeindex].nodedeftype:
+                osold = defview['servernodes'][nodeindex].os
+                osnew = ospool[round(random.uniform(0, len(ospool) - 1))]
+                defview['servernodes'][nodeindex].os = osnew
+                # first we don't consider os transform time (os off-line time) and self-clearance
+                # defview['servernodes'][nodeindex].nodeworkingstate = 'transforming'
+                defview['servernodes'][nodeindex].nodebackdoor = False
+                print('++++++ Defender move node: %s Os at time: %d form Os_type_old: %s to Os_tyoe_new: %s in Os_pool: %s ++++++' %
+                      (defview['servernodes'][nodeindex].nodeid, env.now, osold, osnew, repr(ospool)))
+                # yield env.timeout(osholdingtime)
+                defstate['needdoneact']['osmutation'] = False
+                # defview['servernodes'][nodeindex].nodeworkingstate = 'up'
+                yield env.process(self.definterrupt(env, osholdingtime, 'osmutation'))
+                pass
+            pass
         pass
 
-    def servicemutation(self, env):  # service muatation technique
+    # service platform muatation technique
+    def serviceplatformmutation(self, env):
         pass
 
-    def definterrupt(self, env, interrupttype):
-
+    def definterrupt(self, env, holdingtime, interrupttype):
         if interrupttype == 'ipmutation':
             interruptflags['def-off']['ipmutation'] = True
             # print('Defense aciton %s interrupt! interrupt flag is %s'%(interrupttype,interruptflags['def-off']['ipmutation']))
             yield env.timeout(0)
+            pass
+        elif interrupttype == 'portmutation':
+            pass
+        elif interrupttype == 'osmutation':
+            interruptflags['def-off']['osmutation'] = True
+            yield env.timeout(0)
+            pass
+        elif interrupttype == 'serviceplatformmutation':
             pass
         else:
             yield env.timeout(0)
@@ -379,7 +528,7 @@ class attackermove(object):
         for vulnodesnum in range(len(attstate['vulnodes'])):
             vulnodeid = 'target_' + str(vulnodesnum + 1)
             vulnode = node(-1, -1, -1, -1, -1, -1, -1, -
-                           1, -1, -1, -1, vulnodeid, 'up', False)
+                           1, -1, -1, -1, vulnodeid, 'up', False, [])
             attview['targetnodes'].append(vulnode)
             pass
 
@@ -418,7 +567,7 @@ class attackermove(object):
             return attwinstate
         else:
             print(
-                'Error type of attack objective! Please check and only \'CKC\' and \'DoS\' is supported')
+                '------ Error type of attack objective! Please check and only \'CKC\' and \'DoS\' is supported ------')
             return attwinstate
         pass
 
@@ -485,7 +634,7 @@ class attackermove(object):
             yield env.process(self.att_attonobj(env, attstate, attackholdingtimes))
             pass
         else:
-            print('Error attack type, please check!!')
+            print('------ Error attack type, please check! ------')
             pass
 
         pass
@@ -499,7 +648,7 @@ class attackermove(object):
             else:
                 proc_exists = True
             print(
-                '--------defense ip muation interrupt offense at time %d --------' % (env.now))
+                '------defense ip mutation interrupt offense at time %d ------' % (env.now))
             # proc_exists = 'att_controlandcommand_proc' in locals() or 'att_controlandcommand_proc' in globals()
             if proc_exists and proc.is_alive:
                 proc.interrupt('ipmutation')
@@ -531,11 +680,11 @@ class attackermove(object):
                                                                 'vulnodes'][vulnodeindex].serviceplatform,
                                                             attstate['vulnodes'][vulnodeindex].nodeid, attstate[
                                                                 'vulnodes'][vulnodeindex].nodeworkingstate,
-                                                            attstate['vulnodes'][vulnodeindex].nodebackdoor)
+                                                            attstate['vulnodes'][vulnodeindex].nodebackdoor, attstate['vulnodes'][vulnodeindex].nodedeftype)
                 # in python, the global vers with list type only point to the vers with assignment, so to keep the global vers not change with local vers we have to
                 # 'new' a class and assignment to the global ver
                 attview['attackerwinstate']['reconnaissance'] = True
-                print('reconnaissance success at time %d! the target node:%s ip is %d' %
+                print('------ reconnaissance success at time %d! the target node:%s ip is %d ------' %
                       (env.now, attview['targetnodes'][vulnodeindex].nodeid, attview['targetnodes'][vulnodeindex].ip))
 
             else:
@@ -552,8 +701,8 @@ class attackermove(object):
         malwarecraftexpaddress = []
         for targetnode in attview['targetnodes']:
             weaponcrafttime = []
-            print('target node %s has %d vuls and vullevel is %s vulexplevel is %s vulexpaddress is %s' % (
-                targetnode.nodeid, targetnode.vulnum, targetnode.vullevel, targetnode.vulexplevel, repr(targetnode.vulexpaddress)))
+            print('------ target node: %s (os type: %s and service platform: %s) has: %d vuls and vullevel is: %s vulexplevel is: %s vulexpaddress is: %s ------' % (
+                targetnode.nodeid, targetnode.os, targetnode.serviceplatform, targetnode.vulnum, targetnode.vullevel, targetnode.vulexplevel, repr(targetnode.vulexpaddress)))
             for targetvul in range(targetnode.vulnum):
                 if targetnode.vulexplevel[targetvul] == 'E':
                     wct = 100
@@ -568,7 +717,7 @@ class attackermove(object):
                     wct = 100
                     pass
                 else:
-                    print("Error vuls' exploition level, please check")
+                    print("------ Error vuls' exploition level, please check ------")
                     pass
                 pass
                 weaponcrafttime.append(wct)
@@ -588,7 +737,7 @@ class attackermove(object):
                         crafttime)]
                     pass
                 else:
-                    print('Error attacker ability, please check!')
+                    print('------ Error attacker ability, please check! ------')
                     pass
             malwarecrafttime.append(crafttime)
             malwarecraftos.append(targetnode.os)
@@ -599,8 +748,9 @@ class attackermove(object):
         attview['malwarecraftos'] = malwarecraftos
         attview['malwarecraftserviceplatform'] = malwarecraftserviceplatform
         attview['malwarecraftexpaddress'] = malwarecraftexpaddress
-        print('malware craft time is %s' % (repr(attview['malwarecrafttime'])))
-        print('malware weapon craft start at time %d' % (env.now))
+        print('------ malware craft time is %s ------' %
+              (repr(attview['malwarecrafttime'])))
+        print('------ malware weapon craft start at time %d ------' % (env.now))
         # if have several assailable node, attack the most weak one(less malware craft time)
         attackholdingtimes = min(attview['malwarecrafttime'])
         yield env.timeout(attackholdingtimes)
@@ -616,8 +766,8 @@ class attackermove(object):
         malwaresave['malwaretarget'] = attview['targetnodes'][attview['malwarecrafttime'].index(
             min(attview['malwarecrafttime']))]
         attview['malwaresave'] = malwaresave
-        print('malware weapon craft end at time %d' % (env.now))
-        print('malware weapon state for target node %s are: os-type: %s, service-platform: %s, exploition-address: %d' %
+        print('------ malware weapon craft end at time %d ------' % (env.now))
+        print('------ malware weapon state for target node %s are: os-type: %s, service-platform: %s, exploition-address: %d ------' %
               (malwaresave['malwaretarget'].nodeid, malwaresave['malwarecraftos'], malwaresave['malwarecraftserviceplatform'], malwaresave['malwarecraftexpaddress']))
         # print(attview['malwaresave']['malwarecraftserviceplatform'])
         pass
@@ -630,29 +780,31 @@ class attackermove(object):
                     if targetnode.nodeid == attview['malwaresave']['malwaretarget'].nodeid:
                         if targetnode.ip == vulnode.ip:
                             if vulnode.nodeworkingstate == 'up':
-                                print('delivery start at time %d, sending malware to %s with ip %d' % (
+                                print('------ delivery start at time %d, sending malware to %s with ip %d ------' % (
                                     env.now, targetnode.nodeid, targetnode.ip))
                                 yield env.timeout(attackholdingtimes)
                                 attview['attackerwinstate']['delivery'] = True
-                                print('delivery successed at time %d' %
+                                print('------ delivery successed at time %d ------' %
                                       (env.now))
                                 pass
                             else:
-                                print('target node %s is not online, delivery will try %d time step later!' % (
+                                print('------ target node: %s is not online, delivery will try: %d time step later! ------' % (
                                     vulnode.nodeid, attackholdingtimes))
                                 yield env.timeout(attackholdingtimes)
                                 pass
                             pass
                         else:
-                            print('delivery can not start, error target ip address (attacker know ip is %d, target real ip is %d)' % (
-                                targetnode.ip, vulnode.ip))
+                            print('------ delivery can not start at time: %d, error target ip address (attacker know ip is: %d, target real ip is: %d) ------' % (
+                                env.now, targetnode.ip, vulnode.ip))
                             print(
-                                'reconnaissance will restart to get the real ip for target node!')
+                                '------ reconnaissance will restart to get the real ip for target node! ------')
                             attview['attackerwinstate']['reconnaissance'] = False
+                            attstate['iniip'] = 0
+                            # yield env.timeout(0)
                             pass
                         pass
                     else:
-                        print('target node is not match malware type!')
+                        print('------ target node is not match malware type! ------')
                         pass
                     pass
             else:
@@ -669,19 +821,19 @@ class attackermove(object):
             if vulnode.nodeid == attview['malwaresave']['malwaretarget'].nodeid:
                 for targetnode in attview['targetnodes']:
                     if targetnode.nodeid == attview['malwaresave']['malwaretarget'].nodeid:
-                        if targetnode.os == vulnode.os:
-                            if targetnode.serviceplatform == vulnode.serviceplatform:
+                        if targetnode.os == vulnode.os and attview['malwaresave']['malwarecraftos'] == vulnode.os:
+                            if targetnode.serviceplatform == vulnode.serviceplatform and attview['malwaresave']['malwarecraftserviceplatform'] == vulnode.serviceplatform:
                                 if attview['malwaresave']['malwarecraftexpaddress'] in vulnode.vulexpaddress:
                                     if vulnode.nodeworkingstate == 'up':
-                                        print('malware exploition start at %d, target node id is %s, os is %s, service platform is %s, vuls address is %d' %
+                                        print('------ malware exploition start at %d, target node id is %s, os is %s, service platform is %s, vuls address is %d ------' %
                                               (env.now, targetnode.nodeid, targetnode.os, targetnode.serviceplatform, attview['malwaresave']['malwarecraftexpaddress']))
                                         yield env.timeout(attackholdingtimes)
                                         attview['attackerwinstate']['exploition'] = True
                                         print(
-                                            'exploition successed at time %d' % (env.now))
+                                            '------ exploition successed at time %d ------' % (env.now))
                                         pass
                                     else:
-                                        print('target node %s is not online, exploition will try %d time step later!' % (
+                                        print('------ target node %s is not online, exploition will try %d time step later! ------' % (
                                             vulnode.nodeid, attackholdingtimes))
                                         yield env.timeout(attackholdingtimes)
                                         pass
@@ -689,13 +841,13 @@ class attackermove(object):
                                 else:
                                     # this part will come soon!
                                     print(
-                                        'target node using ASLR, exploition will try later!')
+                                        '------ target node using ASLR, exploition will try later! ------')
                                     yield env.timeout(attackholdingtimes)
                                     pass
                                 pass
                             else:
                                 print(
-                                    'target node servie paltform is not match malware, reconnaissance and weapon craft will re-start soon')
+                                    '------ target node servie paltform is not match malware, reconnaissance and weapon craft will re-start soon ------')
                                 attview['attackerwinstate']['weapon'] = False
                                 attview['attackerwinstate']['reconnaissance'] = False
                                 attview['attackerwinstate']['delivery'] = False
@@ -704,7 +856,7 @@ class attackermove(object):
                             pass
                         else:
                             print(
-                                'target node servie os type is not match malware, reconnaissance, weapon craft and delivery will re-start soon')
+                                '------ target node servie os type is not match malware in att_exploition, reconnaissance, weapon craft and delivery will re-start soon ------')
                             attview['attackerwinstate']['weapon'] = False
                             attview['attackerwinstate']['reconnaissance'] = False
                             attview['attackerwinstate']['delivery'] = False
@@ -712,11 +864,12 @@ class attackermove(object):
                             pass
                         pass
                     else:
-                        print('target node is not match exploition type!')
+                        print(
+                            '------ target node is not match exploition type! ------')
                         pass
                     pass
             else:
-                print('vul node is not match exploition type!')
+                print('------ vul node is not match exploition type! ------')
                 pass
             pass
         pass
@@ -727,20 +880,20 @@ class attackermove(object):
                 for targetnode in attview['targetnodes']:
                     if targetnode.nodeid == attview['malwaresave']['malwaretarget'].nodeid:
                         if vulnode.nodeworkingstate == 'up':
-                            if targetnode.os == vulnode.os:
-                                print('Other malware intstallation start at %d, target node id is %s, os is %s, service platform is %s, vuls address is %d' %
+                            if targetnode.os == vulnode.os and attview['malwaresave']['malwarecraftos'] == vulnode.os:
+                                print('------ Other malware intstallation start at %d, target node id is %s, os is %s, service platform is %s, vuls address is %d ------' %
                                       (env.now, targetnode.nodeid, targetnode.os, targetnode.serviceplatform, attview['malwaresave']['malwarecraftexpaddress']))
                                 yield env.timeout(attackholdingtimes)
                                 attview['attackerwinstate']['installation'] = True
                                 defview['servernodes'][defview['servernodes'].index(
                                     vulnode)].nodebackdoor = True
                                 # print(defview['servernodes'].index(vulnode))
-                                print('installation successed at time %d, target node %s backdoor state is %s' %
+                                print('------ installation successed at time %d, target node %s backdoor state is %s ------' %
                                       (env.now, targetnode.nodeid, format(defview['servernodes'][defview['servernodes'].index(vulnode)].nodebackdoor, "")))
                                 pass
                             else:
                                 print(
-                                    'target node servie os type is not match malware, reconnaissance, weapon craft, delivery and exploition will re-start soon')
+                                    '------ target node servie os type is not match installing other backdoor, reconnaissance, weapon craft, delivery and exploition will re-start soon ------')
                                 attview['attackerwinstate']['weapon'] = False
                                 attview['attackerwinstate']['reconnaissance'] = False
                                 attview['attackerwinstate']['delivery'] = False
@@ -749,13 +902,14 @@ class attackermove(object):
                                 pass
                             pass
                         else:
-                            print('target node %s is not online, installation will try %d time step later!' % (
+                            print('------ target node %s is not online, installation will try %d time step later! ------' % (
                                 vulnode.nodeid, attackholdingtimes))
                             yield env.timeout(attackholdingtimes)
                             pass
                         pass
                     else:
-                        print('target node is not match malware installation type!')
+                        print(
+                            '------ target node is not match malware installation type! ------')
                         pass
                     pass
             else:
@@ -779,43 +933,44 @@ class attackermove(object):
                                     attstate['C&C-D'] = {}
                                     if attstate['C&Ctype'] == 'C':
                                         try:
-                                            print('C&C type is %s. Start C&C on target node %s at time %d for continuous %d time steps' %
-                                                  (attstate['C&Ctype'],targetnode.nodeid, env.now, attstate['C&Ctime']))
+                                            print('------ C&C type is %s. Start C&C on target node %s at time %d for continuous %d time steps ------' %
+                                                  (attstate['C&Ctype'], targetnode.nodeid, env.now, attstate['C&Ctime']))
                                             yield env.timeout(attstate['C&Ctime'])
                                             attview['attackerwinstate']['C&C'] = True
                                             print(
-                                                'C&C successfully end at time %d' % (env.now))
+                                                '------ C&C successfully end at time %d ------' % (env.now))
                                         except simpy.Interrupt:
                                             print(
-                                                '!!!!!! C&C is interrupted at time %d !!!!!!!' % (env.now))
-                                            yield env.timeout(1)
+                                                '------ C&C is interrupted at time %d and C&C has to re-restart! ------' % (env.now))
+                                            yield env.timeout(0)
                                     elif attstate['C&Ctype'] == 'D':
-                                        
                                         try:
-                                            print('C&C type is %s. Start C&C on target node %s at time %d for continuous %d time steps' %
-                                                  (attstate['C&Ctype'],targetnode.nodeid, env.now, attstate['C&Ctime']))
+                                            print('------ C&C type is %s. Start C&C on target node %s at time %d for continuous %d time steps ------' %
+                                                  (attstate['C&Ctype'], targetnode.nodeid, env.now, attstate['C&Ctime']))
                                             attstate['C&C-D']['starttime'] = env.now
                                             yield env.timeout(attstate['C&Ctime'])
                                             attview['attackerwinstate']['C&C'] = True
                                             print(
-                                                'C&C successfully end at time %d' % (env.now))
+                                                '------ C&C successfully end at time %d ------' % (env.now))
                                             pass
                                         except simpy.Interrupt:
                                             attstate['C&C-D']['interrrupttime'] = env.now
-                                            attstate['C&C-D']['timeleft'] = attstate['C&Ctime'] - (attstate['C&C-D']['interrrupttime'] - attstate['C&C-D']['starttime'])
+                                            attstate['C&C-D']['timeleft'] = attstate['C&Ctime'] - (
+                                                attstate['C&C-D']['interrrupttime'] - attstate['C&C-D']['starttime'])
                                             attstate['C&Ctime'] = attstate['C&C-D']['timeleft']
                                             print(
-                                                '!!!!!! C&C is interrupted at time %d and need %d time step left to C&C !!!!' % (env.now,attstate['C&Ctime']))
-                                            yield env.timeout(1)
+                                                '------ C&C is interrupted at time %d and need another %d time step to finish C&C! ------' % (env.now, attstate['C&Ctime']))
+                                            yield env.timeout(0)
                                             pass
                                         pass
                                     else:
-                                        print('Error C&C type, please check!')
+                                        print(
+                                            '------ Error C&C type, please check! ------')
                                         pass
                                     pass
                                 else:
                                     print(
-                                        'target node back door is not exist, reconnaissance, weapon craft, delivery, exploition and installation will re-start soon')
+                                        '------ target node back door is not exist, reconnaissance, weapon craft, delivery, exploition and installation will re-start soon ------')
                                     attview['attackerwinstate']['weapon'] = False
                                     attview['attackerwinstate']['reconnaissance'] = False
                                     attview['attackerwinstate']['delivery'] = False
@@ -825,23 +980,23 @@ class attackermove(object):
                                     pass
                                 pass
                             else:
-                                print('target node %s is not reachable at time %d in ip %d for real ip is %d, reconnaissance will re-start!' %
+                                print('------ target node %s is not reachable at time %d in ip %d for real ip is %d, reconnaissance will re-start! ------' %
                                       (targetnode.nodeid, env.now, targetnode.ip, vulnode.ip))
                                 attview['attackerwinstate']['reconnaissance'] = False
                                 yield env.timeout(attackholdingtimes)
                                 pass
                         else:
-                            print('target node %s is not online, C&C will try %d time step later!' % (
+                            print('------ target node %s is not online, C&C will try %d time step later! ------' % (
                                 vulnode.nodeid, attackholdingtimes))
                             yield env.timeout(attackholdingtimes)
                             pass
                         pass
                     else:
-                        print('target node is not match C&C!')
+                        print('------ target node is not match C&C! ------')
                         pass
                     pass
             else:
-                print('vul node is not match C&C!')
+                print('------ vul node is not match C&C! ------')
                 pass
             pass
         pass
@@ -849,9 +1004,9 @@ class attackermove(object):
 
     def att_attonobj(self, env, attstate, attackholdingtimes):
 
-        attview['attackerwinstate']['AoO'] = True
-        print('AoO successed at time %d' % (env.now))
         yield env.timeout(attackholdingtimes)
+        attview['attackerwinstate']['AoO'] = True
+        print('------ AoO successed at time %d ------' % (env.now))
         pass
 
 
@@ -874,11 +1029,11 @@ class interruptmove(object):
         while True:
             # print(repr(interruptflags))
             if interruptflags['def-off']['ipmutation']:
-                print(
-                    '+++++++defense ip muation interrupt offense at time %d +++++++++' % (env.now))
                 if 'att_controlandcommand_proc' in interruptporc:
                     proc = interruptporc['att_controlandcommand_proc']
                     if proc.is_alive:
+                        print(
+                        '++++++ defense ip mutation interrupt offense at time %d ++++++' % (env.now))
                         interruptflags['def-off']['ipmutation'] = False
                         proc.interrupt('ipmutation')
                         pass
@@ -890,6 +1045,29 @@ class interruptmove(object):
                     yield env.timeout(1)
                     pass
                 interruptflags['def-off']['ipmutation'] = False
+                yield env.timeout(1)
+                pass
+            else:
+                yield env.timeout(1)
+                pass
+            pass
+            if interruptflags['def-off']['osmutation']:
+                if 'att_controlandcommand_proc' in interruptporc:
+                    proc = interruptporc['att_controlandcommand_proc']
+                    if proc.is_alive:
+                        print(
+                        '++++++ defense os mutation interrupt offense at time %d ++++++' % (env.now))
+                        interruptflags['def-off']['osmutation'] = False
+                        proc.interrupt('osmutation')
+                        pass
+                    else:
+                        yield env.timeout(1)
+                        pass
+                    pass
+                else:
+                    yield env.timeout(1)
+                    pass
+                interruptflags['def-off']['osmutation'] = False
                 yield env.timeout(1)
                 pass
             else:
