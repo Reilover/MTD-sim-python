@@ -77,6 +77,16 @@ class sysplayer(object):
         self.objective = objective
         self.ability = ability
 
+class malware(object):
+    def __init__(self, malwareid, os, serviceplatform, exploitationaddress, version, crafttime, exploitationtime, targetnode):
+        self.malwareid = malwareid
+        self.os = os
+        self.serviceplatform = serviceplatform 
+        self.exploitationaddress = exploitationaddress
+        self.version = version
+        self.crafttime = crafttime
+        self.exploitationtime = exploitationtime
+        self.targetnode = targetnode
 
 def simini():
     #first, we initialize simulaiton states
@@ -88,7 +98,7 @@ def simini():
     ostype = ['Windows', 'Linux']
     servicetype = ['FTP', 'HTTP', 'Media']
     serviceplatform = {}
-    serviceplatform['FTP'] = ['FTP-MIT', 'FTP-IBM', 'FTP-Stanford']
+    serviceplatform['FTP'] = ['MIT', 'IBM', 'Stanford']
     serviceplatform['HTTP'] = ['IIS', 'Ngnix', 'Apache']
     serviceplatform['Media'] = ['Flash', 'Clint']
     vulleveltypes = ['C', 'S', 'V']
@@ -96,7 +106,10 @@ def simini():
     maxvulnum = 3
     Simulationstate = simstate(nodenums, servernums, usernums, attacknums, ipsegment,
                                ostype, servicetype, serviceplatform, vulleveltypes, vulexpleveltypes, maxvulnum)
-    #second, we initilize nodes including usernodes, servernodes, attackernodes
+    # we initialize node's vuls state according to os type, service platform and service type, which is saved to defview for os and service mutation!
+    vulstate = vulsini('random',Simulationstate)
+    defview['vulstate'] = vulstate
+    #second, we initialize nodes including usernodes, servernodes, attackernodes
     attackernodes = nodesini('att', Simulationstate)
     servernodes = nodesini('server', Simulationstate)
     usernodes = nodesini('usr', Simulationstate)
@@ -141,6 +154,93 @@ def interruptflagsinit(types):
     else:
         print('Error types of interrupt, return none please check!')
         return interrupt
+
+def vulsini(types,simstate):
+    # initialize nodes vul state! tow types are support, 'random' for random initialize and 'emulation' for CVE files.
+    vulstate = {}
+    servervulnum = {}
+    servervullevel = {}
+    servervulexplevel = {}
+    servervulexpaddress = {}
+
+    if types == 'random':
+        servervulnum_ostype_list = []
+        servervullevel_ostype_list = []
+        servervulexplevel_ostype_list = []
+        servervulexpaddress_ostype_list = []
+        for ostype in simstate.nodeostypes:
+            # print(ostype)
+            servervulnum_servicetype_list = []
+            servervullevel_servicetype_list = []
+            servervulexplevel_servicetype_list = []
+            servervulexpaddress_servicetype_list = []
+            for servicetype in simstate.nodeservicetypes:
+                # print(ostype+'-'+servicetype)
+                servervulnum_serviceplatform_list = []
+                servervullevel_serviceplatform_list = []
+                servervulexplevel_serviceplatform_list = []
+                servervulexpaddress_serviceplatform_list = []
+                for serviceplatformtype in simstate.nodeserviceplatform[servicetype]:
+                    # print(ostype+'-'+servicetype+'-'+serviceplatformtype)
+                    vulnum= round(random.uniform(1, simstate.maxvulnum))
+                    vullevellist = []
+                    vulexplevellist = []
+                    vulexpaddresslist = []
+                    for vul in range(vulnum):
+                        # print('vul is %d and vuls is %d'%(vul,servervulnum))
+                        vullevel = simstate.vulleveltypes[round(
+                            random.uniform(0, len(simstate.vulleveltypes) - 1))]
+                        vullevellist.append(vullevel)
+                        vulexplevel = simstate.vulexpleveltypes[round(
+                        random.uniform(0, len(simstate.vulexpleveltypes) - 1))]
+                        vulexplevellist.append(vulexplevel)
+                        vulexpaddress = round(random.uniform(0, 65535))
+                        vulexpaddresslist.append(vulexpaddress)
+                        pass
+                    # servervulnum[ostype][servicetype][serviceplatformtype]
+                    servervulnum_serviceplatform_list.append((serviceplatformtype,vulnum))
+                    servervullevel_serviceplatform_list.append((serviceplatformtype,vullevellist))
+                    servervulexplevel_serviceplatform_list.append((serviceplatformtype,vulexplevellist))
+                    servervulexpaddress_serviceplatform_list.append((serviceplatformtype,vulexpaddresslist))
+                    pass
+                servervulnum_serviceplatform_dict = dict(servervulnum_serviceplatform_list)
+                servervullevel_serviceplatform_dict = dict(servervullevel_serviceplatform_list)
+                servervulexplevel_serviceplatform_dict = dict(servervulexplevel_serviceplatform_list)
+                servervulexpaddress_serviceplatform_dict = dict(servervulexpaddress_serviceplatform_list)
+                    # print(servervulnum_serviceplatform_dict)
+                servervulnum_servicetype_list.append((servicetype,servervulnum_serviceplatform_dict))
+                servervullevel_servicetype_list.append((servicetype,servervullevel_serviceplatform_dict))
+                servervulexplevel_servicetype_list.append((servicetype,servervulexplevel_serviceplatform_dict))
+                servervulexpaddress_servicetype_list.append((servicetype,servervulexpaddress_serviceplatform_dict))
+                pass
+            servervulnum_servicetype_dict = dict(servervulnum_servicetype_list)
+            servervullevel_servicetype_dict = dict(servervullevel_servicetype_list)
+            servervulexplevel_servicetype_dict = dict(servervulexplevel_servicetype_list)
+            servervulexpaddress_servicetype_dict = dict(servervulexpaddress_servicetype_list)
+            # print(servervulnum_servicetype_dict)
+            servervulnum_ostype_list.append((ostype,servervulnum_servicetype_dict))
+            servervullevel_ostype_list.append((ostype,servervullevel_servicetype_dict))
+            servervulexplevel_ostype_list.append((ostype,servervulexplevel_servicetype_dict))
+            servervulexpaddress_ostype_list.append((ostype,servervulexpaddress_servicetype_dict))
+            pass
+        servervulnum = dict(servervulnum_ostype_list)
+        servervullevel = dict(servervullevel_ostype_list)
+        servervulexplevel = dict(servervulexplevel_ostype_list)
+        servervulexpaddress = dict(servervulexpaddress_ostype_list)
+        pass
+    elif types == 'emulation':
+        # to do!
+        # finish in the future
+        pass
+    else:
+        print('Error vul types, please check!')
+        pass
+    vulstate['vulnums'] = servervulnum
+    vulstate['vullevels'] = servervullevel
+    vulstate['vulexplevels'] = servervulexplevel
+    vulstate['vulexpaddresses'] = servervulexpaddress
+    # print(vulstate)
+    return vulstate
 
 
 def topoini(type, simstate):  # for this version, we consider the simple topo with 3 connective nodes
@@ -191,22 +291,6 @@ def nodesini(type, simstate):
             #     iniip = 256 - iniip
             #     pass
             iniport = round(random.uniform(1000, 65535))
-            servervulnum = round(random.uniform(1, simstate.maxvulnum))
-            #print(servervulnum)
-            servervullevel = []
-            servervulexplevel = []
-            servervulexpaddress = []
-            for vul in range(servervulnum):
-                # print('vul is %d and vuls is %d'%(vul,servervulnum))
-                vullevel = simstate.vulleveltypes[round(
-                    random.uniform(0, len(simstate.vulleveltypes) - 1))]
-                servervullevel.append(vullevel)
-                vulexplevel = simstate.vulexpleveltypes[round(
-                    random.uniform(0, len(simstate.vulexpleveltypes) - 1))]
-                servervulexplevel.append(vulexplevel)
-                vulexpaddress = round(random.uniform(0, 65535))
-                servervulexpaddress.append(vulexpaddress)
-                pass
             # print(round(random.uniform(0,len(simstate.nodeostypes))))
             serveros = simstate.nodeostypes[round(
                 random.uniform(0, len(simstate.nodeostypes) - 1))]
@@ -220,8 +304,9 @@ def nodesini(type, simstate):
                 # for Windows, the web service can be IIS, Ngnix and Apache
                 pass
             elif serveros == 'Linux':
-                simstate.nodeserviceplatform['HTTP'].remove('IIS')
                 serviceplatformlinux = simstate.nodeserviceplatform['HTTP']
+                serviceplatformlinux.remove('IIS')
+                # print(serviceplatformlinux)
                 serverserviceplatform = serviceplatformlinux[round(
                     random.uniform(0, len(serviceplatformlinux) - 1))]
                 pass
@@ -232,6 +317,10 @@ def nodesini(type, simstate):
             nodebackdoor = False
             nodedeftype = ['ipmutation', 'osmutation',
                            'serviceplatformmutation', 'ASLR']
+            servervulnum = defview['vulstate']['vulnums'][serveros][serverservicetype][serverserviceplatform]
+            servervullevel = defview['vulstate']['vullevels'][serveros][serverservicetype][serverserviceplatform]
+            servervulexplevel = defview['vulstate']['vulexplevels'][serveros][serverservicetype][serverserviceplatform]
+            servervulexpaddress = defview['vulstate']['vulexpaddresses'][serveros][serverservicetype][serverserviceplatform]
             servernode = node(servervulnum, servervullevel, servervulexplevel, servervulexpaddress,
                               ipbase, -1, iniip, iniport, serveros, serverservicetype, serverserviceplatform, servernodeid, nodeworkingstate, nodebackdoor, nodedeftype)
             servernodelist.append(servernode)
@@ -437,7 +526,7 @@ class defendermove(object):
                     ipnew = ipnew - 256
                 pass
                 defview['servernodes'][nodeindex].ip = ipnew
-                print("++++++ Defender move node: %s ip address in ip_base: %d at time: %d form ip_address_old: %d to ip_address_new: %d in ip_pool: %d ++++++" %
+                print("++++++ Defender Action! node: %s IP address in ip_base: %d at time: %d form ip_address_old: %d to ip_address_new: %d in ip_pool: %d ++++++" %
                       (defview['servernodes'][nodeindex].nodeid, ipbase, env.now, ipold, ipnew, ippool[0]))
                 # yield env.timeout(ipholdingtime)
                 defstate['needdoneact']['ipmutation'] = False
@@ -462,10 +551,16 @@ class defendermove(object):
                 osold = defview['servernodes'][nodeindex].os
                 osnew = ospool[round(random.uniform(0, len(ospool) - 1))]
                 defview['servernodes'][nodeindex].os = osnew
+                if defview['servernodes'][nodeindex].os == 'Linux' or defview['servernodes'][nodeindex].os == 'Unix':
+                    if defview['servernodes'][nodeindex].serviceplatform == 'IIS':
+                        defview['servernodes'][nodeindex].serviceplatform = defview['defenders'].objective['servicepool']['Linux']['HTTP'][round(
+                            random.uniform(0, len(defview['defenders'].objective['servicepool']['Linux']['HTTP'])-1))]
+                        pass
+                    pass
                 # first we don't consider os transform time (os off-line time) and self-clearance
                 # defview['servernodes'][nodeindex].nodeworkingstate = 'transforming'
                 defview['servernodes'][nodeindex].nodebackdoor = False
-                print('++++++ Defender move node: %s Os at time: %d form Os_type_old: %s to Os_tyoe_new: %s in Os_pool: %s ++++++' %
+                print('++++++ Defender Action! node: %s Os type at time: %d form Os_type_old: %s to Os_tyoe_new: %s in Os_pool: %s ++++++' %
                       (defview['servernodes'][nodeindex].nodeid, env.now, osold, osnew, repr(ospool)))
                 # yield env.timeout(osholdingtime)
                 defstate['needdoneact']['osmutation'] = False
@@ -514,6 +609,8 @@ class attackermove(object):
         attview['attackerwinstate'] = attwinstate
         attview['attackerzday'] = attzday
         attview['targetnodes'] = []
+        attview['malwaresave'] = []
+        attview['malwaresend'] = []
         attstate = {}
         attstate['iniip'] = 0
         attstate['endip'] = 255
@@ -684,7 +781,7 @@ class attackermove(object):
                 # in python, the global vers with list type only point to the vers with assignment, so to keep the global vers not change with local vers we have to
                 # 'new' a class and assignment to the global ver
                 attview['attackerwinstate']['reconnaissance'] = True
-                print('------ reconnaissance success at time %d! the target node:%s ip is %d ------' %
+                print('------ reconnaissance success at time: %d! the target node: %s ip is: %d ------' %
                       (env.now, attview['targetnodes'][vulnodeindex].nodeid, attview['targetnodes'][vulnodeindex].ip))
 
             else:
@@ -699,6 +796,7 @@ class attackermove(object):
         malwarecraftos = []
         malwarecraftserviceplatform = []
         malwarecraftexpaddress = []
+        malwarecraftexptime = []
         for targetnode in attview['targetnodes']:
             weaponcrafttime = []
             print('------ target node: %s (os type: %s and service platform: %s) has: %d vuls and vullevel is: %s vulexplevel is: %s vulexpaddress is: %s ------' % (
@@ -726,6 +824,7 @@ class attackermove(object):
                     crafttime = max(weaponcrafttime)
                     exploitaddress = targetnode.vulexpaddress[weaponcrafttime.index(
                         crafttime)]
+                    exploitationtime = 30
                     pass
                 # elif attabi == 'medium': # for medium attack ability, the exploition address is a problem so this part is not support in this version
                 #     crafttime = int(
@@ -735,6 +834,7 @@ class attackermove(object):
                     crafttime = min(weaponcrafttime)
                     exploitaddress = targetnode.vulexpaddress[weaponcrafttime.index(
                         crafttime)]
+                    exploitationtime = 10
                     pass
                 else:
                     print('------ Error attacker ability, please check! ------')
@@ -743,80 +843,95 @@ class attackermove(object):
             malwarecraftos.append(targetnode.os)
             malwarecraftserviceplatform.append(targetnode.serviceplatform)
             malwarecraftexpaddress.append(exploitaddress)
+            malwarecraftexptime.append(exploitationtime)
             pass
-        attview['malwarecrafttime'] = malwarecrafttime
-        attview['malwarecraftos'] = malwarecraftos
-        attview['malwarecraftserviceplatform'] = malwarecraftserviceplatform
-        attview['malwarecraftexpaddress'] = malwarecraftexpaddress
+        # attview['malwarecrafttime'] = malwarecrafttime
+        # attview['malwarecraftos'] = malwarecraftos
+        # attview['malwarecraftserviceplatform'] = malwarecraftserviceplatform
+        # attview['malwarecraftexpaddress'] = malwarecraftexpaddress
         print('------ malware craft time is %s ------' %
-              (repr(attview['malwarecrafttime'])))
+              (malwarecrafttime))
         print('------ malware weapon craft start at time %d ------' % (env.now))
         # if have several assailable node, attack the most weak one(less malware craft time)
-        attackholdingtimes = min(attview['malwarecrafttime'])
+        attackholdingtimes = min(malwarecrafttime)
         yield env.timeout(attackholdingtimes)
         attview['attackerwinstate']['weapon'] = True
-        malwaresave = {}
-        malwaresave['malwarecrafttime'] = min(attview['malwarecrafttime'])
-        malwaresave['malwarecraftserviceplatform'] = attview['malwarecraftserviceplatform'][attview['malwarecrafttime'].index(
-            min(attview['malwarecrafttime']))]
-        malwaresave['malwarecraftos'] = attview['malwarecraftos'][attview['malwarecrafttime'].index(
-            min(attview['malwarecrafttime']))]
-        malwaresave['malwarecraftexpaddress'] = attview['malwarecraftexpaddress'][attview['malwarecrafttime'].index(
-            min(attview['malwarecrafttime']))]
-        malwaresave['malwaretarget'] = attview['targetnodes'][attview['malwarecrafttime'].index(
-            min(attview['malwarecrafttime']))]
-        attview['malwaresave'] = malwaresave
+        malwareworkingos = malwarecraftos[malwarecrafttime.index(min(malwarecrafttime))]
+        malwarewokingtime = min(malwarecrafttime)
+        malwareworkingplatform = malwarecraftserviceplatform[malwarecrafttime.index(min(malwarecrafttime))]
+        malwareworkingexpaddress = malwarecraftexpaddress[malwarecrafttime.index(min(malwarecrafttime))]
+        malwareworkingtarget = attview['targetnodes'][malwarecrafttime.index(min(malwarecrafttime))]
+        malwareid = 'malware-'+ malwareworkingtarget.nodeid+'-'+malwareworkingos+'-'+malwareworkingplatform+'-'+str(malwareworkingexpaddress)
+        malwarewokingexptime = malwarecraftexptime[malwarecrafttime.index(min(malwarecrafttime))]
+        malwarewokingversion = 'att'
+        malwaresave = malware(malwareid,malwareworkingos,malwareworkingplatform,malwareworkingexpaddress,malwarewokingversion,malwarewokingtime,malwarewokingexptime,malwareworkingtarget)
+        attview['malwaresave'].append(malwaresave)
         print('------ malware weapon craft end at time %d ------' % (env.now))
-        print('------ malware weapon state for target node %s are: os-type: %s, service-platform: %s, exploition-address: %d ------' %
-              (malwaresave['malwaretarget'].nodeid, malwaresave['malwarecraftos'], malwaresave['malwarecraftserviceplatform'], malwaresave['malwarecraftexpaddress']))
+        print('------ malware weapon state for target node %s are: os-type: %s, service-platform: %s, exploition-address: %d, exploition-time: %d------' %
+              (malwaresave.targetnode.nodeid, malwaresave.crafttime, malwaresave.serviceplatform, malwaresave.exploitationaddress,malwaresave.exploitationtime))
         # print(attview['malwaresave']['malwarecraftserviceplatform'])
         pass
 
     def att_delivery(self, env, attstate, attackholdingtimes):
-
+        malwaresend = []
         for vulnode in attstate['vulnodes']:
-            if vulnode.nodeid == attview['malwaresave']['malwaretarget'].nodeid:
-                for targetnode in attview['targetnodes']:
-                    if targetnode.nodeid == attview['malwaresave']['malwaretarget'].nodeid:
-                        if targetnode.ip == vulnode.ip:
-                            if vulnode.nodeworkingstate == 'up':
+            for targetnode in attview['targetnodes']:
+                if targetnode.nodeid == vulnode.nodeid:
+                    if targetnode.ip == vulnode.ip:
+                        if vulnode.nodeworkingstate == 'up':
+                            for malware in attview['malwaresave']:
+                                if malware.targetnode.nodeid == targetnode.nodeid and malware.targetnode.nodeid == vulnode.nodeid:
+                                    malwaresend.append(malware)
+                                else:
+                                    print('------ malware target does not match target node and vul node, Weapon will restart! ------')
+                                    attview['attackerwinstate']['weapon'] = False
+                                    yield env.timeout(attackholdingtimes) 
+                                    pass
+                                pass
+                            pass
+                            if len(malwaresend) > 0:
                                 print('------ delivery start at time %d, sending malware to %s with ip %d ------' % (
                                     env.now, targetnode.nodeid, targetnode.ip))
                                 yield env.timeout(attackholdingtimes)
                                 attview['attackerwinstate']['delivery'] = True
-                                print('------ delivery successed at time %d ------' %
-                                      (env.now))
+                                attview['malwaresend'] = []
+                                attview['malwaresend'] = (malwaresend)
+                                print('------ delivery successed at time %d ------' % (env.now))
                                 pass
                             else:
-                                print('------ target node: %s is not online, delivery will try: %d time step later! ------' % (
-                                    vulnode.nodeid, attackholdingtimes))
-                                yield env.timeout(attackholdingtimes)
-                                pass
-                            pass
+                                print('------ No malware can be sent to target node: %s, reconnaissance and weapon will restart!　------' % (targetnode.nodeid))
+                                attview['attackerwinstate']['reconnaissance'] = False
+                                attview['attackerwinstate']['weapon'] = False
+                                attstate['iniip'] = 0
+                                pass     
                         else:
-                            print('------ delivery can not start at time: %d, error target ip address (attacker know ip is: %d, target real ip is: %d) ------' % (
-                                env.now, targetnode.ip, vulnode.ip))
-                            print(
-                                '------ reconnaissance will restart to get the real ip for target node! ------')
-                            attview['attackerwinstate']['reconnaissance'] = False
-                            attstate['iniip'] = 0
-                            # yield env.timeout(0)
+                            print('------ target node: %s is not online, delivery will try: %d time step later! ------' % (
+                                    vulnode.nodeid, attackholdingtimes))
+                            yield env.timeout(attackholdingtimes)
                             pass
                         pass
                     else:
-                        print('------ target node is not match malware type! ------')
-                        pass
+                        print('------ delivery can not start at time: %d, error target ip address (attacker know ip is: %d, target real ip is: %d) ------' % (
+                                env.now, targetnode.ip, vulnode.ip))
+                        print(
+                            '------ reconnaissance will restart to get the real ip for target node: %s at time: %d! ------' % 
+                                    (targetnode.nodeid, (env.now+attackholdingtimes)))
+                        attview['attackerwinstate']['reconnaissance'] = False
+                        attstate['iniip'] = 0
+                        yield env.timeout(attackholdingtimes) 
                     pass
-            else:
-                print('vul node is not match malware type!')
+                else:
+                    print('------ target node is not in vul nodes, Reconnaissance will restart! ------')
+                    attview['attackerwinstate']['reconnaissance'] = False
+                    attstate['iniip'] = 0
+                    yield env.timeout(attackholdingtimes) 
+                    pass
                 pass
             pass
-
         pass
-
     def att_exploition(self, env, attstate, attackholdingtimes):
         # print('target node vul exploition address is ')
-        # print(attview['targetnodes'][0].vulexpaddress)
+        print(attview['malwaresend'][0].targetnode.nodeid)
         for vulnode in attstate['vulnodes']:
             if vulnode.nodeid == attview['malwaresave']['malwaretarget'].nodeid:
                 for targetnode in attview['targetnodes']:
@@ -881,14 +996,14 @@ class attackermove(object):
                     if targetnode.nodeid == attview['malwaresave']['malwaretarget'].nodeid:
                         if vulnode.nodeworkingstate == 'up':
                             if targetnode.os == vulnode.os and attview['malwaresave']['malwarecraftos'] == vulnode.os:
-                                print('------ Other malware intstallation start at %d, target node id is %s, os is %s, service platform is %s, vuls address is %d ------' %
+                                print('------ Other malware intstallation start at: %d, target node id is: %s, os is: %s, service platform is: %s, vuls address is: %d ------' %
                                       (env.now, targetnode.nodeid, targetnode.os, targetnode.serviceplatform, attview['malwaresave']['malwarecraftexpaddress']))
                                 yield env.timeout(attackholdingtimes)
                                 attview['attackerwinstate']['installation'] = True
                                 defview['servernodes'][defview['servernodes'].index(
                                     vulnode)].nodebackdoor = True
                                 # print(defview['servernodes'].index(vulnode))
-                                print('------ installation successed at time %d, target node %s backdoor state is %s ------' %
+                                print('------ installation successed at time: %d, target node: %s backdoor state is: %s ------' %
                                       (env.now, targetnode.nodeid, format(defview['servernodes'][defview['servernodes'].index(vulnode)].nodebackdoor, "")))
                                 pass
                             else:
@@ -902,7 +1017,7 @@ class attackermove(object):
                                 pass
                             pass
                         else:
-                            print('------ target node %s is not online, installation will try %d time step later! ------' % (
+                            print('------ target node: %s is not online, installation will try: %d time step later! ------' % (
                                 vulnode.nodeid, attackholdingtimes))
                             yield env.timeout(attackholdingtimes)
                             pass
@@ -970,7 +1085,8 @@ class attackermove(object):
                                     pass
                                 else:
                                     print(
-                                        '------ target node back door is not exist, reconnaissance, weapon craft, delivery, exploition and installation will re-start soon ------')
+                                        '------ target node back door is not exist, reconnaissance, weapon craft, delivery, exploition and installation will re-start at time %d------' %
+                                        (attackholdingtimes + env.now))
                                     attview['attackerwinstate']['weapon'] = False
                                     attview['attackerwinstate']['reconnaissance'] = False
                                     attview['attackerwinstate']['delivery'] = False
@@ -1033,7 +1149,7 @@ class interruptmove(object):
                     proc = interruptporc['att_controlandcommand_proc']
                     if proc.is_alive:
                         print(
-                        '++++++ defense ip mutation interrupt offense at time %d ++++++' % (env.now))
+                            '++++++ defense ip mutation interrupt offense at time %d ++++++' % (env.now))
                         interruptflags['def-off']['ipmutation'] = False
                         proc.interrupt('ipmutation')
                         pass
@@ -1056,7 +1172,7 @@ class interruptmove(object):
                     proc = interruptporc['att_controlandcommand_proc']
                     if proc.is_alive:
                         print(
-                        '++++++ defense os mutation interrupt offense at time %d ++++++' % (env.now))
+                            '++++++ defense os mutation interrupt offense at time %d ++++++' % (env.now))
                         interruptflags['def-off']['osmutation'] = False
                         proc.interrupt('osmutation')
                         pass
@@ -1077,6 +1193,16 @@ class interruptmove(object):
         pass
     pass
 
+class datacollect(object):
+    def __init__(self, env, defmove, attmove, usrmove):
+        self.env = env
+        self.defmove = defmove
+        self.attmove = attmove
+        self.usrmove = usrmove
+        pass
+    def sysdatacollect(self, env, defmove, attmove, usrmove):
+        pass
+    pass
 
 #initailize the simulation
 simini()
