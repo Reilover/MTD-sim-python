@@ -78,10 +78,10 @@ class sysplayer(object):
         self.ability = ability
 
 class malware(object):
-    def __init__(self, malwareid, os, serviceplatform, exploitationaddress, version, crafttime, exploitationtime, targetnode):
+    def __init__(self, malwareid, expos, expserviceplatform, exploitationaddress, version, crafttime, exploitationtime, targetnode):
         self.malwareid = malwareid
-        self.os = os
-        self.serviceplatform = serviceplatform 
+        self.expos = expos
+        self.expserviceplatform = expserviceplatform 
         self.exploitationaddress = exploitationaddress
         self.version = version
         self.crafttime = crafttime
@@ -587,6 +587,8 @@ class defendermove(object):
             yield env.timeout(0)
             pass
         elif interrupttype == 'serviceplatformmutation':
+            interruptflags['def-off']['serviceplatformmutation'] = True
+            yield env.timeout(0)
             pass
         else:
             yield env.timeout(0)
@@ -611,6 +613,7 @@ class attackermove(object):
         attview['targetnodes'] = []
         attview['malwaresave'] = []
         attview['malwaresend'] = []
+        attview['malwareinstall'] = []
         attstate = {}
         attstate['iniip'] = 0
         attstate['endip'] = 255
@@ -621,7 +624,7 @@ class attackermove(object):
         attstate['C&Ctype'] = attstrategy.split(
             '-')[len(attstrategy.split('-')) - 1]
         # for C&C time, 50 time step is a relative value.
-        attstate['C&Ctime'] = 50
+        attstate['C&Ctime'] = 100
         for vulnodesnum in range(len(attstate['vulnodes'])):
             vulnodeid = 'target_' + str(vulnodesnum + 1)
             vulnode = node(-1, -1, -1, -1, -1, -1, -1, -
@@ -849,9 +852,9 @@ class attackermove(object):
         # attview['malwarecraftos'] = malwarecraftos
         # attview['malwarecraftserviceplatform'] = malwarecraftserviceplatform
         # attview['malwarecraftexpaddress'] = malwarecraftexpaddress
-        print('------ malware craft time is %s ------' %
+        print('------ malware craft time is: %s ------' %
               (malwarecrafttime))
-        print('------ malware weapon craft start at time %d ------' % (env.now))
+        print('------ malware weapon craft start at time: %d ------' % (env.now))
         # if have several assailable node, attack the most weak one(less malware craft time)
         attackholdingtimes = min(malwarecrafttime)
         yield env.timeout(attackholdingtimes)
@@ -861,14 +864,14 @@ class attackermove(object):
         malwareworkingplatform = malwarecraftserviceplatform[malwarecrafttime.index(min(malwarecrafttime))]
         malwareworkingexpaddress = malwarecraftexpaddress[malwarecrafttime.index(min(malwarecrafttime))]
         malwareworkingtarget = attview['targetnodes'][malwarecrafttime.index(min(malwarecrafttime))]
-        malwareid = 'malware-'+ malwareworkingtarget.nodeid+'-'+malwareworkingos+'-'+malwareworkingplatform+'-'+str(malwareworkingexpaddress)
+        malwareid = 'malware-'+ malwareworkingtarget.nodeid+'-'+malwareworkingos+'-'+malwareworkingplatform
         malwarewokingexptime = malwarecraftexptime[malwarecrafttime.index(min(malwarecrafttime))]
         malwarewokingversion = 'att'
         malwaresave = malware(malwareid,malwareworkingos,malwareworkingplatform,malwareworkingexpaddress,malwarewokingversion,malwarewokingtime,malwarewokingexptime,malwareworkingtarget)
         attview['malwaresave'].append(malwaresave)
         print('------ malware weapon craft end at time %d ------' % (env.now))
         print('------ malware weapon state for target node %s are: os-type: %s, service-platform: %s, exploition-address: %d, exploition-time: %d------' %
-              (malwaresave.targetnode.nodeid, malwaresave.crafttime, malwaresave.serviceplatform, malwaresave.exploitationaddress,malwaresave.exploitationtime))
+              (malwaresave.targetnode.nodeid, malwaresave.expos, malwaresave.expserviceplatform, malwaresave.exploitationaddress,malwaresave.exploitationtime))
         # print(attview['malwaresave']['malwarecraftserviceplatform'])
         pass
 
@@ -890,13 +893,13 @@ class attackermove(object):
                                 pass
                             pass
                             if len(malwaresend) > 0:
-                                print('------ delivery start at time %d, sending malware to %s with ip %d ------' % (
+                                print('------ delivery start at time: %d, sending malware to: %s with ip: %d ------' % (
                                     env.now, targetnode.nodeid, targetnode.ip))
                                 yield env.timeout(attackholdingtimes)
                                 attview['attackerwinstate']['delivery'] = True
                                 attview['malwaresend'] = []
                                 attview['malwaresend'] = (malwaresend)
-                                print('------ delivery successed at time %d ------' % (env.now))
+                                print('------ delivery successed at time: %d ------' % (env.now))
                                 pass
                             else:
                                 print('------ No malware can be sent to target node: %s, reconnaissance and weapon will restart!　------' % (targetnode.nodeid))
@@ -931,107 +934,111 @@ class attackermove(object):
         pass
     def att_exploition(self, env, attstate, attackholdingtimes):
         # print('target node vul exploition address is ')
-        print(attview['malwaresend'][0].targetnode.nodeid)
-        for vulnode in attstate['vulnodes']:
-            if vulnode.nodeid == attview['malwaresave']['malwaretarget'].nodeid:
-                for targetnode in attview['targetnodes']:
-                    if targetnode.nodeid == attview['malwaresave']['malwaretarget'].nodeid:
-                        if targetnode.os == vulnode.os and attview['malwaresave']['malwarecraftos'] == vulnode.os:
-                            if targetnode.serviceplatform == vulnode.serviceplatform and attview['malwaresave']['malwarecraftserviceplatform'] == vulnode.serviceplatform:
-                                if attview['malwaresave']['malwarecraftexpaddress'] in vulnode.vulexpaddress:
-                                    if vulnode.nodeworkingstate == 'up':
-                                        print('------ malware exploition start at %d, target node id is %s, os is %s, service platform is %s, vuls address is %d ------' %
-                                              (env.now, targetnode.nodeid, targetnode.os, targetnode.serviceplatform, attview['malwaresave']['malwarecraftexpaddress']))
-                                        yield env.timeout(attackholdingtimes)
-                                        attview['attackerwinstate']['exploition'] = True
-                                        print(
-                                            '------ exploition successed at time %d ------' % (env.now))
+        # print(repr(attview['malwaresend']))
+        for malwareindex in range(len(attview['malwaresend'])):
+            # print(malwareindex)
+            for vulnode in attstate['vulnodes']:
+                if vulnode.nodeid == attview['malwaresend'][malwareindex].targetnode.nodeid:
+                    for targetnode in attview['targetnodes']:
+                        if targetnode.nodeid == attview['malwaresend'][malwareindex].targetnode.nodeid:
+                            if targetnode.os == vulnode.os and attview['malwaresend'][malwareindex].expos == vulnode.os:
+                                if targetnode.serviceplatform == vulnode.serviceplatform and attview['malwaresend'][malwareindex].expserviceplatform == vulnode.serviceplatform:
+                                    if attview['malwaresend'][malwareindex].exploitationaddress in vulnode.vulexpaddress:
+                                        if vulnode.nodeworkingstate == 'up':
+                                            print('------ malware exploition start at: %d, target node id is: %s, os is: %s, service platform is: %s, vuls address is: %d ------' %
+                                                (env.now, targetnode.nodeid, targetnode.os, targetnode.serviceplatform, attview['malwaresend'][malwareindex].exploitationaddress))
+                                            yield env.timeout(attackholdingtimes)
+                                            attview['attackerwinstate']['exploition'] = True
+                                            print(
+                                                '------ exploition successed at time: %d ------' % (env.now))
+                                            return
+                                        else:
+                                            print('------ target node: %s is not online, exploition will try %d time step later! ------' % (
+                                                vulnode.nodeid, attackholdingtimes))
+                                            yield env.timeout(attackholdingtimes)
+                                            pass
                                         pass
                                     else:
-                                        print('------ target node %s is not online, exploition will try %d time step later! ------' % (
-                                            vulnode.nodeid, attackholdingtimes))
+                                        # this part will come soon!
+                                        print(
+                                            '------ target node using ASLR, exploition will try later! ------')
                                         yield env.timeout(attackholdingtimes)
                                         pass
                                     pass
                                 else:
-                                    # this part will come soon!
-                                    print(
-                                        '------ target node using ASLR, exploition will try later! ------')
-                                    yield env.timeout(attackholdingtimes)
+                                    if malwareindex == len(attview['malwaresend']) - 1:
+                                        print(
+                                        '------ target node servie paltform is not match malware: %s, reconnaissance and weapon craft will re-start soon ------' %(attview['malwaresend'][malwareindex].malwareid))
+                                        attview['attackerwinstate']['weapon'] = False
+                                        attview['attackerwinstate']['reconnaissance'] = False
+                                        attview['attackerwinstate']['delivery'] = False
+                                        yield env.timeout(attackholdingtimes)
+                                        pass
+                                    else:
+                                        continue
                                     pass
                                 pass
                             else:
-                                print(
-                                    '------ target node servie paltform is not match malware, reconnaissance and weapon craft will re-start soon ------')
-                                attview['attackerwinstate']['weapon'] = False
-                                attview['attackerwinstate']['reconnaissance'] = False
-                                attview['attackerwinstate']['delivery'] = False
-                                yield env.timeout(attackholdingtimes)
+                                if malwareindex == len(attview['malwaresend']) - 1:
+                                        print(
+                                        '------ target node servie paltform is not match malware: %s, reconnaissance and weapon craft will re-start soon ------' %(attview['malwaresend'][malwareindex].malwareid))
+                                        attview['attackerwinstate']['weapon'] = False
+                                        attview['attackerwinstate']['reconnaissance'] = False
+                                        attview['attackerwinstate']['delivery'] = False
+                                        yield env.timeout(attackholdingtimes)
+                                        pass
+                                else:
+                                    continue
                                 pass
                             pass
                         else:
                             print(
-                                '------ target node servie os type is not match malware in att_exploition, reconnaissance, weapon craft and delivery will re-start soon ------')
-                            attview['attackerwinstate']['weapon'] = False
-                            attview['attackerwinstate']['reconnaissance'] = False
-                            attview['attackerwinstate']['delivery'] = False
-                            yield env.timeout(attackholdingtimes)
+                                '------ target node is not match exploition type! ------')
                             pass
                         pass
-                    else:
-                        print(
-                            '------ target node is not match exploition type! ------')
-                        pass
+                else:
+                    print('------ vul node is not match exploition type! ------')
                     pass
-            else:
-                print('------ vul node is not match exploition type! ------')
                 pass
             pass
         pass
 
     def att_installation(self, env, attstate, attackholdingtimes):
         for vulnode in attstate['vulnodes']:
-            if vulnode.nodeid == attview['malwaresave']['malwaretarget'].nodeid:
-                for targetnode in attview['targetnodes']:
-                    if targetnode.nodeid == attview['malwaresave']['malwaretarget'].nodeid:
-                        if vulnode.nodeworkingstate == 'up':
-                            if targetnode.os == vulnode.os and attview['malwaresave']['malwarecraftos'] == vulnode.os:
-                                print('------ Other malware intstallation start at: %d, target node id is: %s, os is: %s, service platform is: %s, vuls address is: %d ------' %
-                                      (env.now, targetnode.nodeid, targetnode.os, targetnode.serviceplatform, attview['malwaresave']['malwarecraftexpaddress']))
-                                yield env.timeout(attackholdingtimes)
-                                attview['attackerwinstate']['installation'] = True
-                                defview['servernodes'][defview['servernodes'].index(
-                                    vulnode)].nodebackdoor = True
-                                # print(defview['servernodes'].index(vulnode))
-                                print('------ installation successed at time: %d, target node: %s backdoor state is: %s ------' %
-                                      (env.now, targetnode.nodeid, format(defview['servernodes'][defview['servernodes'].index(vulnode)].nodebackdoor, "")))
-                                pass
-                            else:
-                                print(
-                                    '------ target node servie os type is not match installing other backdoor, reconnaissance, weapon craft, delivery and exploition will re-start soon ------')
-                                attview['attackerwinstate']['weapon'] = False
-                                attview['attackerwinstate']['reconnaissance'] = False
-                                attview['attackerwinstate']['delivery'] = False
-                                attview['attackerwinstate']['exploition'] = False
-                                yield env.timeout(attackholdingtimes)
-                                pass
+            for targetnode in attview['targetnodes']:
+                if vulnode.nodeid == targetnode.nodeid:
+                    if vulnode.nodeworkingstate == 'up':
+                        if targetnode.os == vulnode.os:
+                            print('------ Other malware intstallation start at: %d, target node id is: %s, os is: %s ------' %
+                                    (env.now, targetnode.nodeid, targetnode.os))
+                            yield env.timeout(attackholdingtimes)
+                            attview['attackerwinstate']['installation'] = True
+                            defview['servernodes'][defview['servernodes'].index(
+                                vulnode)].nodebackdoor = True
+                            # print(defview['servernodes'].index(vulnode))
+                            print('------ installation successed at time: %d, target node: %s backdoor state is: %s ------' %
+                                    (env.now, targetnode.nodeid, format(defview['servernodes'][defview['servernodes'].index(vulnode)].nodebackdoor, "")))
                             pass
                         else:
-                            print('------ target node: %s is not online, installation will try: %d time step later! ------' % (
-                                vulnode.nodeid, attackholdingtimes))
+                            print(
+                                '------ target node servie os type is not match installing other backdoor, reconnaissance, weapon craft, delivery and exploition will re-start soon ------')
+                            attview['attackerwinstate']['weapon'] = False
+                            attview['attackerwinstate']['reconnaissance'] = False
+                            attview['attackerwinstate']['delivery'] = False
+                            attview['attackerwinstate']['exploition'] = False
                             yield env.timeout(attackholdingtimes)
                             pass
                         pass
                     else:
-                        print(
-                            '------ target node is not match malware installation type! ------')
-                        pass
+                        print('------ target node: %s is not online, installation will try: %d time step later! ------' % (
+                            vulnode.nodeid, attackholdingtimes))
+                        yield env.timeout(attackholdingtimes)
+                        pass 
                     pass
-            else:
-                print('vul node is not match malware installation type!')
-                pass
+                else:
+                    print('target node: %s is not in Vul node set: %s' % (targetnode.nodeid, repr(attstate['vulnodes'])))
+                    pass
             pass
-        pass
         pass
 
     def att_controlandcommand(self, env, attstate, attackholdingtimes):
@@ -1039,80 +1046,72 @@ class attackermove(object):
         # print('C&C type is %s, need C&C %d time steps' %
         #       (attstate['C&Ctype'], attstate['C&Ctime']))
         for vulnode in attstate['vulnodes']:
-            if vulnode.nodeid == attview['malwaresave']['malwaretarget'].nodeid:
-                for targetnode in attview['targetnodes']:
-                    if targetnode.nodeid == attview['malwaresave']['malwaretarget'].nodeid:
-                        if vulnode.nodeworkingstate == 'up':
-                            if vulnode.ip == targetnode.ip:
-                                if vulnode.nodebackdoor:
-                                    attstate['C&C-D'] = {}
-                                    if attstate['C&Ctype'] == 'C':
-                                        try:
-                                            print('------ C&C type is %s. Start C&C on target node %s at time %d for continuous %d time steps ------' %
-                                                  (attstate['C&Ctype'], targetnode.nodeid, env.now, attstate['C&Ctime']))
-                                            yield env.timeout(attstate['C&Ctime'])
-                                            attview['attackerwinstate']['C&C'] = True
-                                            print(
-                                                '------ C&C successfully end at time %d ------' % (env.now))
-                                        except simpy.Interrupt:
-                                            print(
-                                                '------ C&C is interrupted at time %d and C&C has to re-restart! ------' % (env.now))
-                                            yield env.timeout(0)
-                                    elif attstate['C&Ctype'] == 'D':
-                                        try:
-                                            print('------ C&C type is %s. Start C&C on target node %s at time %d for continuous %d time steps ------' %
-                                                  (attstate['C&Ctype'], targetnode.nodeid, env.now, attstate['C&Ctime']))
-                                            attstate['C&C-D']['starttime'] = env.now
-                                            yield env.timeout(attstate['C&Ctime'])
-                                            attview['attackerwinstate']['C&C'] = True
-                                            print(
-                                                '------ C&C successfully end at time %d ------' % (env.now))
-                                            pass
-                                        except simpy.Interrupt:
-                                            attstate['C&C-D']['interrrupttime'] = env.now
-                                            attstate['C&C-D']['timeleft'] = attstate['C&Ctime'] - (
-                                                attstate['C&C-D']['interrrupttime'] - attstate['C&C-D']['starttime'])
-                                            attstate['C&Ctime'] = attstate['C&C-D']['timeleft']
-                                            print(
-                                                '------ C&C is interrupted at time %d and need another %d time step to finish C&C! ------' % (env.now, attstate['C&Ctime']))
-                                            yield env.timeout(0)
-                                            pass
-                                        pass
-                                    else:
-                                        print(
-                                            '------ Error C&C type, please check! ------')
-                                        pass
-                                    pass
-                                else:
+            for targetnode in attview['targetnodes']:
+                if vulnode.nodeworkingstate == 'up':
+                    if vulnode.ip == targetnode.ip:
+                        if vulnode.nodebackdoor:
+                            attstate['C&C-D'] = {}
+                            if attstate['C&Ctype'] == 'C':
+                                try:
+                                    print('------ C&C type is %s. Start C&C on target node %s at time %d for continuous %d time steps ------' %
+                                            (attstate['C&Ctype'], targetnode.nodeid, env.now, attstate['C&Ctime']))
+                                    yield env.timeout(attstate['C&Ctime'])
+                                    attview['attackerwinstate']['C&C'] = True
                                     print(
-                                        '------ target node back door is not exist, reconnaissance, weapon craft, delivery, exploition and installation will re-start at time %d------' %
-                                        (attackholdingtimes + env.now))
-                                    attview['attackerwinstate']['weapon'] = False
-                                    attview['attackerwinstate']['reconnaissance'] = False
-                                    attview['attackerwinstate']['delivery'] = False
-                                    attview['attackerwinstate']['exploition'] = False
-                                    attview['attackerwinstate']['installation'] = False
-                                    yield env.timeout(attackholdingtimes)
+                                        '------ C&C successfully end at time %d ------' % (env.now))
+                                except simpy.Interrupt:
+                                    print(
+                                        '------ C&C is interrupted at time %d and C&C has to re-restart! ------' % (env.now))
+                                    yield env.timeout(0)
+                                    return
+                            elif attstate['C&Ctype'] == 'D':
+                                try:
+                                    print('------ C&C type is %s. Start C&C on target node %s at time %d for continuous %d time steps ------' %
+                                            (attstate['C&Ctype'], targetnode.nodeid, env.now, attstate['C&Ctime']))
+                                    attstate['C&C-D']['starttime'] = env.now
+                                    yield env.timeout(attstate['C&Ctime'])
+                                    attview['attackerwinstate']['C&C'] = True
+                                    print(
+                                        '------ C&C successfully end at time %d ------' % (env.now))
                                     pass
+                                except simpy.Interrupt:
+                                    attstate['C&C-D']['interrrupttime'] = env.now
+                                    attstate['C&C-D']['timeleft'] = attstate['C&Ctime'] - (
+                                        attstate['C&C-D']['interrrupttime'] - attstate['C&C-D']['starttime'])
+                                    attstate['C&Ctime'] = attstate['C&C-D']['timeleft']
+                                    print(
+                                        '------ C&C is interrupted at time %d and need another %d time step to finish C&C! ------' % (env.now, attstate['C&Ctime']))
+                                    yield env.timeout(0)
+                                    return
                                 pass
                             else:
-                                print('------ target node %s is not reachable at time %d in ip %d for real ip is %d, reconnaissance will re-start! ------' %
-                                      (targetnode.nodeid, env.now, targetnode.ip, vulnode.ip))
-                                attview['attackerwinstate']['reconnaissance'] = False
-                                yield env.timeout(attackholdingtimes)
+                                print(
+                                    '------ Error C&C type, please check! ------')
                                 pass
+                            pass
                         else:
-                            print('------ target node %s is not online, C&C will try %d time step later! ------' % (
-                                vulnode.nodeid, attackholdingtimes))
+                            print(
+                                '------ target node back door is not exist, reconnaissance, weapon craft, delivery, exploition and installation will re-start at time %d------' %
+                                (attackholdingtimes + env.now))
+                            attview['attackerwinstate']['weapon'] = False
+                            attview['attackerwinstate']['reconnaissance'] = False
+                            attview['attackerwinstate']['delivery'] = False
+                            attview['attackerwinstate']['exploition'] = False
+                            attview['attackerwinstate']['installation'] = False
                             yield env.timeout(attackholdingtimes)
                             pass
                         pass
                     else:
-                        print('------ target node is not match C&C! ------')
+                        print('------ target node: %s is not reachable at time: %d in ip: %d for real ip: is %d, reconnaissance will re-start! ------' %
+                                (targetnode.nodeid, env.now, targetnode.ip, vulnode.ip))
+                        attview['attackerwinstate']['reconnaissance'] = False
+                        yield env.timeout(attackholdingtimes)
                         pass
+                else:
+                    print('------ target node: %s is not online, C&C will try %d time step later! ------' % (
+                        vulnode.nodeid, attackholdingtimes))
+                    yield env.timeout(attackholdingtimes)
                     pass
-            else:
-                print('------ vul node is not match C&C! ------')
                 pass
             pass
         pass
@@ -1147,7 +1146,7 @@ class interruptmove(object):
             if interruptflags['def-off']['ipmutation']:
                 if 'att_controlandcommand_proc' in interruptporc:
                     proc = interruptporc['att_controlandcommand_proc']
-                    if proc.is_alive:
+                    if proc.is_alive and proc.target != None:
                         print(
                             '++++++ defense ip mutation interrupt offense at time %d ++++++' % (env.now))
                         interruptflags['def-off']['ipmutation'] = False
@@ -1170,7 +1169,7 @@ class interruptmove(object):
             if interruptflags['def-off']['osmutation']:
                 if 'att_controlandcommand_proc' in interruptporc:
                     proc = interruptporc['att_controlandcommand_proc']
-                    if proc.is_alive:
+                    if proc.is_alive and proc.target != None:
                         print(
                             '++++++ defense os mutation interrupt offense at time %d ++++++' % (env.now))
                         interruptflags['def-off']['osmutation'] = False
@@ -1190,6 +1189,30 @@ class interruptmove(object):
                 yield env.timeout(1)
                 pass
             pass
+            if interruptflags['def-off']['serviceplatformmutation']:
+                if 'att_controlandcommand_proc' in interruptporc:
+                    proc = interruptporc['att_controlandcommand_proc']
+                    if proc.is_alive and proc.target != None:
+                        print(
+                            '++++++ defense service platform mutation interrupt offense at time %d ++++++' % (env.now))
+                        interruptflags['def-off']['serviceplatformmutation'] = False
+                        proc.interrupt('serviceplatformmutation')
+                        pass
+                    else:
+                        yield env.timeout(1)
+                        pass
+                    pass
+                else:
+                    yield env.timeout(1)
+                    pass
+                interruptflags['def-off']['serviceplatformmutation'] = False
+                yield env.timeout(1)
+                pass
+            else:
+                yield env.timeout(1)
+                pass
+            pass
+            
         pass
     pass
 
