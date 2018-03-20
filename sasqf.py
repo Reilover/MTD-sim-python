@@ -1,20 +1,18 @@
+# import sys files
 import random
 import itertools
 import simpy
 import numpy
 import globalvar
-globalvar._init()
-# self-defined files
+
+globalvar._init() # define global vars
+# import self-defined files
 import sysutil
 import systemini
 import attackmove
 import defendmove
 import usermove
 import interruptmove
-
-# define some global vers here
-
-
 
 #initailize the simulation
 systemini.simini()

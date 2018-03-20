@@ -59,7 +59,7 @@ class defendermove(object):
             defstate['needdoneact']['osmutation'] = True
             pass
         if env.now % defstate['serviceplatformfreq'] == 0 and env.now != 0:
-            # defstate['needdoneact']['serviceplatformmutation'] = True
+            defstate['needdoneact']['serviceplatformmutation'] = True
             pass
         needdoneact = sysutil.get_keys(defstate['needdoneact'], True)
         return needdoneact
@@ -74,18 +74,25 @@ class defendermove(object):
         ipserviceplatform = set(ipserviceplatform)
         osserviceplatform = ['osmutation', 'serviceplatformmutation']
         osserviceplatform = set(osserviceplatform)
+        iposserviceplatform = ['ipmutation', 'osmutation', 'serviceplatformmutation']
+        iposserviceplatform = set(iposserviceplatform)
         if 'ipmutation' in deftype and len(deftype) == 1:
             ipholdingtime = 3
-            yield env.process(self.ipmutation(env, ipholdingtime, defstate))
+            ipmutation = env.process(self.ipmutation(env, ipholdingtime, defstate))
+            yield ipmutation
             pass
         elif 'protmutation' in deftype and len(deftype) == 1:
             pass
         elif 'osmutation' in deftype and len(deftype) == 1:
             # print('----os type need move----')
             osholdingtime = 5
-            yield env.process(self.osmutation(env, osholdingtime, defstate))
+            osmutation = env.process(self.osmutation(env, osholdingtime, defstate))
+            yield osmutation
             pass
         elif 'serviceplatformmutation' in deftype and len(deftype) == 1:
+            serviceplatformholdingtime = 5
+            serviceplatformmutation = env.process(self.serviceplatformmutation(env, serviceplatformholdingtime, defstate))
+            yield serviceplatformmutation
             pass
         elif ipportset.issubset(deftypeset) and len(deftype) == 2:
             pass
@@ -109,6 +116,15 @@ class defendermove(object):
             osmutation = env.process(self.osmutation(env, osholdingtime, defstate))
             serviceplatformmutation = env.process(self.serviceplatformmutation(env, serviceplatformholdingtime, defstate))
             yield osmutation & serviceplatformmutation
+            pass
+        elif iposserviceplatform.issubset(deftypeset) and len(deftype) == 3:
+            ipholdingtime =3
+            osholdingtime = 5
+            serviceplatformholdingtime = 5
+            ipmutation = env.process(self.ipmutation(env, ipholdingtime, defstate))
+            osmutation = env.process(self.osmutation(env, osholdingtime, defstate))
+            serviceplatformmutation = env.process(self.serviceplatformmutation(env, serviceplatformholdingtime, defstate))
+            yield ipmutation & osmutation & serviceplatformmutation
             pass
         else:
             print('++++++ Error defense type, please check! ++++++')
@@ -153,6 +169,8 @@ class defendermove(object):
     def osmutation(self, env, osholdingtime, defstate):  # Os muatation technique
         defview = globalvar.get_value('defview')
         ospool = defview['defenders'].objective['ospool']
+        # print(defview['vulstate'])
+        # print(defview['vulstate']['vulnums']['Windows']['HTTP']['IIS'])
         # print('++++++ Os mutation pool is %s ++++++' % (repr(ospool)))
         for nodeindex in range(len(defview['servernodes'])):
             if 'osmutation' in defview['servernodes'][nodeindex].nodedeftype:
@@ -165,6 +183,10 @@ class defendermove(object):
                             random.uniform(0, len(defview['defenders'].objective['servicepool']['Linux']['HTTP'])-1))]
                         pass
                     pass
+                defview['servernodes'][nodeindex].vulnum = defview['vulstate']['vulnums'][defview['servernodes'][nodeindex].os][defview['servernodes'][nodeindex].servicetype][defview['servernodes'][nodeindex].serviceplatform]
+                defview['servernodes'][nodeindex].vullevel = defview['vulstate']['vullevels'][defview['servernodes'][nodeindex].os][defview['servernodes'][nodeindex].servicetype][defview['servernodes'][nodeindex].serviceplatform]
+                defview['servernodes'][nodeindex].vulexplevel = defview['vulstate']['vulexplevels'][defview['servernodes'][nodeindex].os][defview['servernodes'][nodeindex].servicetype][defview['servernodes'][nodeindex].serviceplatform]
+                defview['servernodes'][nodeindex].vulexpaddress = defview['vulstate']['vulexpaddresses'][defview['servernodes'][nodeindex].os][defview['servernodes'][nodeindex].servicetype][defview['servernodes'][nodeindex].serviceplatform]
                 # first we don't consider os transform time (os off-line time) and self-clearance
                 # defview['servernodes'][nodeindex].nodeworkingstate = 'transforming'
                 defview['servernodes'][nodeindex].nodebackdoor = False
@@ -181,6 +203,32 @@ class defendermove(object):
 
     # service platform muatation technique
     def serviceplatformmutation(self, env, serviceplatformholdingtime, defstate):
+        defview = globalvar.get_value('defview')
+        # serviceplatformpool = defview['defenders'].objective['servicepool']
+        # print('++++++ Service Platform pool mutation pool is %s ++++++' % (repr(serviceplatformpool)))
+        for nodeindex in range(len(defview['servernodes'])):
+            serviceplatformpool = defview['defenders'].objective['servicepool'][defview['servernodes'][nodeindex].os][defview['servernodes'][nodeindex].servicetype]
+            print('++++++ Service Platform pool mutation pool is %s in os type %s ++++++' % (repr(serviceplatformpool),defview['servernodes'][nodeindex].os))
+            if 'serviceplatformmutation' in defview['servernodes'][nodeindex].nodedeftype:
+                serviceplatformold = defview['servernodes'][nodeindex].serviceplatform
+                serviceplatformnew = serviceplatformpool[round(random.uniform(0, len(serviceplatformpool) - 1))]
+                defview['servernodes'][nodeindex].serviceplatform = serviceplatformnew
+                defview['servernodes'][nodeindex].vulnum = defview['vulstate']['vulnums'][defview['servernodes'][nodeindex].os][defview['servernodes'][nodeindex].servicetype][defview['servernodes'][nodeindex].serviceplatform]
+                defview['servernodes'][nodeindex].vullevel = defview['vulstate']['vullevels'][defview['servernodes'][nodeindex].os][defview['servernodes'][nodeindex].servicetype][defview['servernodes'][nodeindex].serviceplatform]
+                defview['servernodes'][nodeindex].vulexplevel = defview['vulstate']['vulexplevels'][defview['servernodes'][nodeindex].os][defview['servernodes'][nodeindex].servicetype][defview['servernodes'][nodeindex].serviceplatform]
+                defview['servernodes'][nodeindex].vulexpaddress = defview['vulstate']['vulexpaddresses'][defview['servernodes'][nodeindex].os][defview['servernodes'][nodeindex].servicetype][defview['servernodes'][nodeindex].serviceplatform]
+                # first we don't consider os transform time (os off-line time) and self-clearance
+                # defview['servernodes'][nodeindex].nodeworkingstate = 'transforming'
+                defview['servernodes'][nodeindex].nodebackdoor = False
+                print('++++++ Defender Action! node: %s Service Platform type at time: %d form Service_Platform_old: %s to Service_Platform_new: %s in Service_Platform_pool: %s ++++++' %
+                      (defview['servernodes'][nodeindex].nodeid, env.now, serviceplatformold, serviceplatformnew, repr(serviceplatformpool)))
+                # yield env.timeout(osholdingtime)
+                defstate['needdoneact']['serviceplatformmutation'] = False
+                # defview['servernodes'][nodeindex].nodeworkingstate = 'up'
+                globalvar.set_value('defview',defview)
+                yield env.process(self.definterrupt(env, serviceplatformholdingtime, 'serviceplatformmutation'))
+                pass
+            pass
         pass
 
     def definterrupt(self, env, holdingtime, interrupttype):

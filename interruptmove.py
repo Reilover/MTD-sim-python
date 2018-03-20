@@ -40,7 +40,7 @@ class interruptmove(object):
         for proc in procs:
             if procs[proc] != None and procs[proc].is_alive and procs[proc].target != None:
                 print('++++++ Interrupt type: %s using: %s interrupt process: %s at time %d ++++++' % (interrupttype,interruptlist,proc,env.now))
-                procs[proc].interrupt(str(interruptlist))
+                procs[proc].interrupt(repr(interruptlist))
                 for interrupt in interruptlist:
                     interruptflags[interrupttype][interrupt] = False
                     pass

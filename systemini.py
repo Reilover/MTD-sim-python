@@ -2,6 +2,8 @@ import sysutil
 import globalvar
 import random
 import numpy
+import copy
+#defined, initialized, and saved global vars to globalvar
 global attview
 global defview
 global usrview
@@ -91,7 +93,7 @@ class malware(object):
 
 def simini():
     #first, we initialize simulaiton states
-    
+
     servernums = 1
     attacknums = 1
     usernums = 1
@@ -311,7 +313,7 @@ def nodesini(type, simstate):
                 # for Windows, the web service can be IIS, Ngnix and Apache
                 pass
             elif serveros == 'Linux':
-                serviceplatformlinux = simstate.nodeserviceplatform['HTTP']
+                serviceplatformlinux = copy.deepcopy(simstate.nodeserviceplatform['HTTP'])
                 serviceplatformlinux.remove('IIS')
                 # print(serviceplatformlinux)
                 serverserviceplatform = serviceplatformlinux[round(
@@ -384,8 +386,10 @@ def sysplayerini(type, simstate):
             elif ostype == 'Linux':
                 defobjective['servicepool']['Linux'] = {}
                 # print(simstate.nodeserviceplatform['HTTP'])
+                nodeserviceplatformforlinux = copy.deepcopy(simstate.nodeserviceplatform['HTTP'])#.remove('IIS')
+                nodeserviceplatformforlinux.remove('IIS')
                 defobjective['servicepool']['Linux']['HTTP'] = (
-                    simstate.nodeserviceplatform['HTTP'])
+                    nodeserviceplatformforlinux)
                 defobjective['servicepool']['Linux']['FTP'] = (
                     simstate.nodeserviceplatform['FTP'])
                 defobjective['servicepool']['Linux']['Media'] = (

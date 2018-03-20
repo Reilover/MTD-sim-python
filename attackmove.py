@@ -115,7 +115,7 @@ class attackermove(object):
         undonephase = sysutil.get_keys(attackstates, False)
         return undonephase
 
-    # using topo links to find ccc nodes, which have external link to attack nodes.s
+    # using topo links to find target nodes, which have external link to attack nodes. 
     def attchecktarnodes(self, nodenum):
         defview = globalvar.get_value('defview')
         vulnodes = []
@@ -177,7 +177,7 @@ class attackermove(object):
             #         (attstate['vulnodes'][vulnodeindex].nodeid,attstate['iniip'],attstate['vulnodes'][vulnodeindex].ip,env.now))
             # print(attstate['vulnodes'][vulnodeindex].ip)
             attview = globalvar.get_value('attview')
-            if attstate['vulnodes'][vulnodeindex].ip == attstate['iniip'] or attstate['iniip'] == attview['targetnodes'][vulnodeindex].ip:
+            if attstate['vulnodes'][vulnodeindex].ip == attstate['iniip'] or attstate['iniip'] == attview['targetnodes'][vulnodeindex].ip or attstate['vulnodes'][vulnodeindex].ip == attview['targetnodes'][vulnodeindex].ip:
                 yield env.timeout(attackholdingtimes)
                 attview['targetnodes'][vulnodeindex] = systemini.node(attstate['vulnodes'][vulnodeindex].vulnum, attstate['vulnodes'][vulnodeindex].vullevel,
                                                             attstate['vulnodes'][vulnodeindex].vulexplevel, attstate[
@@ -210,6 +210,7 @@ class attackermove(object):
         malwarecraftexpaddress = []
         malwarecraftexptime = []
         attview = globalvar.get_value('attview')
+        defview = globalvar.get_value('defview')
         for targetnode in attview['targetnodes']:
             weaponcrafttime = []
             print('------ target node: %s (os type: %s and service platform: %s) has: %d vuls and vullevel is: %s vulexplevel is: %s vulexpaddress is: %s ------' % (
@@ -405,6 +406,7 @@ class attackermove(object):
                                         attview['attackerwinstate']['weapon'] = False
                                         attview['attackerwinstate']['reconnaissance'] = False
                                         attview['attackerwinstate']['delivery'] = False
+                                        attstate['iniip'] = 0
                                         globalvar.set_value('attview',attview)
                                         yield env.timeout(attackholdingtimes)
                                         pass
@@ -419,6 +421,7 @@ class attackermove(object):
                                         attview['attackerwinstate']['weapon'] = False
                                         attview['attackerwinstate']['reconnaissance'] = False
                                         attview['attackerwinstate']['delivery'] = False
+                                        attstate['iniip'] = 0
                                         globalvar.set_value('attview',attview)
                                         yield env.timeout(attackholdingtimes)
                                         pass
@@ -464,6 +467,7 @@ class attackermove(object):
                             attview['attackerwinstate']['reconnaissance'] = False
                             attview['attackerwinstate']['delivery'] = False
                             attview['attackerwinstate']['exploition'] = False
+                            attstate['iniip'] = 0
                             globalvar.set_value('attview',attview)
                             yield env.timeout(attackholdingtimes)
                             pass
@@ -540,6 +544,7 @@ class attackermove(object):
                             attview['attackerwinstate']['delivery'] = False
                             attview['attackerwinstate']['exploition'] = False
                             attview['attackerwinstate']['installation'] = False
+                            attstate['iniip'] = 0
                             globalvar.set_value('attview',attview)
                             yield env.timeout(attackholdingtimes)
                             pass
@@ -548,6 +553,7 @@ class attackermove(object):
                         print('------ target node: %s is not reachable at time: %d in ip: %d for real ip: is %d, reconnaissance will re-start! ------' %
                                 (targetnode.nodeid, env.now, targetnode.ip, vulnode.ip))
                         attview['attackerwinstate']['reconnaissance'] = False
+                        attstate['iniip'] = 0
                         globalvar.set_value('attview',attview)
                         yield env.timeout(attackholdingtimes)
                         pass
