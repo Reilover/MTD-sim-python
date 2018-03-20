@@ -391,11 +391,11 @@ def sysplayerini(type, simstate):
             pass
         # print(defobjective['servicepool']['Linux']['HTTP'])
 
-        defobjective['ipfreq'] = [10, 100, 300]  # ip change frequency (s)
-        defobjective['portfreq'] = [10, 120, 300]  # port chagne frequency (s)
+        defobjective['ipfreq'] = [30, 100, 300]  # ip change frequency (s)
+        defobjective['portfreq'] = [50, 150, 300]  # port chagne frequency (s)
         # service chagne frequency (s)
-        defobjective['servicefreq'] = [150, 300, 1200]
-        defobjective['osfreq'] = [150, 600, 1200]  # OS chagne frequency (s)
+        defobjective['servicefreq'] = [100, 300, 1200]
+        defobjective['osfreq'] = [100, 600, 1200]  # OS chagne frequency (s)
         defender = sysplayer(defstrategy, defobjective, -1)
         return defender
     elif type == 'usr':
@@ -441,19 +441,7 @@ class defendermove(object):
                 #       (env.now, repr(needdoneact)))
                 yield env.process(self.defonce(env, needdoneact, defstate))
                 pass
-            # #we consider the mutation with small pool and high frequency
-            # # test = 100%200
-            # if env.now % ipfreq[1] == 0:
-            #     ipholdingtime = 3
-            #     yield env.process(self.ipmutation(env, ipholdingtime, defstate))
-            #     # print(defview['topo'].linkmatrix[defview['topo'].servernum+defview['topo'].usernum+defview['topo'].attackernum-1])
-            # # elif env.now%portfreq[0] == 0:
-            # #     pass
-            # # print(env.now%osfreq[0])
-            # if env.now%osfreq[0] == 0: #
-            #     osholdingtime = 5
-            #     yield env.process(self.osmutation(env, osholdingtime, defstate))
-            #     pass
+
 
             defactiontime = 1
             yield env.timeout(defactiontime)
@@ -502,8 +490,9 @@ class defendermove(object):
         elif iposset.issubset(deftypeset) and len(deftype) == 2:
             ipholdingtime = 3
             osholdingtime = 5
-            yield env.process(self.ipmutation(env, ipholdingtime, defstate))
-            yield env.process(self.osmutation(env, osholdingtime, defstate))
+            ipmutation = env.process(self.ipmutation(env, ipholdingtime, defstate))
+            osmutation = env.process(self.osmutation(env, osholdingtime, defstate))
+            yield ipmutation & osmutation
             pass
         else:
             print('++++++ Error defense type, please check! ++++++')
@@ -767,6 +756,8 @@ class attackermove(object):
             attstate['iniip'] = 0
             pass
         for vulnodeindex in range(len(attstate['vulnodes'])):
+            # print('------ the attacker reconnaissance node is : %s, ip is: %d, Real ip is: %d,at time: %d ------' % 
+            #         (attstate['vulnodes'][vulnodeindex].nodeid,attstate['iniip'],attstate['vulnodes'][vulnodeindex].ip,env.now))
             # print(attstate['vulnodes'][vulnodeindex].ip)
             if attstate['vulnodes'][vulnodeindex].ip == attstate['iniip'] or attstate['iniip'] == attview['targetnodes'][vulnodeindex].ip:
                 yield env.timeout(attackholdingtimes)
@@ -852,13 +843,9 @@ class attackermove(object):
         # attview['malwarecraftos'] = malwarecraftos
         # attview['malwarecraftserviceplatform'] = malwarecraftserviceplatform
         # attview['malwarecraftexpaddress'] = malwarecraftexpaddress
-        print('------ malware craft time is: %s ------' %
-              (malwarecrafttime))
-        print('------ malware weapon craft start at time: %d ------' % (env.now))
+        
         # if have several assailable node, attack the most weak one(less malware craft time)
-        attackholdingtimes = min(malwarecrafttime)
-        yield env.timeout(attackholdingtimes)
-        attview['attackerwinstate']['weapon'] = True
+        
         malwareworkingos = malwarecraftos[malwarecrafttime.index(min(malwarecrafttime))]
         malwarewokingtime = min(malwarecrafttime)
         malwareworkingplatform = malwarecraftserviceplatform[malwarecrafttime.index(min(malwarecrafttime))]
@@ -868,10 +855,30 @@ class attackermove(object):
         malwarewokingexptime = malwarecraftexptime[malwarecrafttime.index(min(malwarecrafttime))]
         malwarewokingversion = 'att'
         malwaresave = malware(malwareid,malwareworkingos,malwareworkingplatform,malwareworkingexpaddress,malwarewokingversion,malwarewokingtime,malwarewokingexptime,malwareworkingtarget)
-        attview['malwaresave'].append(malwaresave)
-        print('------ malware weapon craft end at time %d ------' % (env.now))
-        print('------ malware weapon state for target node %s are: os-type: %s, service-platform: %s, exploition-address: %d, exploition-time: %d------' %
-              (malwaresave.targetnode.nodeid, malwaresave.expos, malwaresave.expserviceplatform, malwaresave.exploitationaddress,malwaresave.exploitationtime))
+        
+        malwarecrafted = []
+        for malwares in attview['malwaresave']:
+            malwarecrafted.append(malwares.malwareid)
+            pass
+        if malwaresave.malwareid in malwarecrafted:
+            print('------ malware: %s is already crafted! ------' % (malwaresave.malwareid))
+            attview['attackerwinstate']['weapon'] = True
+            attackholdingtimes = 2
+            yield env.timeout(attackholdingtimes)
+            pass
+        else:
+            print('------ malware craft time is: %s ------' %
+                        (malwarecrafttime))
+            print('------ malware weapon craft start at time: %d ------' % (env.now))
+            attview['malwaresave'].append(malwaresave)
+            attackholdingtimes = min(malwarecrafttime)
+            yield env.timeout(attackholdingtimes)
+            attview['attackerwinstate']['weapon'] = True
+            print('------ malware weapon craft end at time %d ------' % (env.now))
+            print('------ malware weapon state for target node %s are: os-type: %s, service-platform: %s, exploition-address: %d, exploition-time: %d ------' %
+                (malwaresave.targetnode.nodeid, malwaresave.expos, malwaresave.expserviceplatform, malwaresave.exploitationaddress,malwaresave.exploitationtime))
+            pass
+
         # print(attview['malwaresave']['malwarecraftserviceplatform'])
         pass
 
@@ -1140,78 +1147,125 @@ class interruptmove(object):
         self.usrmove = usrmove
         pass
 
+    def interruptcheck(self):
+        interruptlist_def_off = get_keys(interruptflags['def-off'],True)
+        interruptlist_off_usr = get_keys(interruptflags['off-usr'],True)
+        interruptlist_def_usr = get_keys(interruptflags['def-usr'],True)
+        interruptlist = {}
+        interruptlist['def-off'] = interruptlist_def_off
+        interruptlist['off-usr'] = interruptlist_off_usr
+        interruptlist['def-usr'] = interruptlist_def_usr
+        return interruptlist
+    
+    def proccheck(self):
+        if 'att_controlandcommand_proc' in interruptporc:
+            proc_cc = interruptporc['att_controlandcommand_proc']
+        else:
+            proc_cc = None
+        procdict = {}
+        procdict['proc_cc'] = proc_cc
+
+        return procdict
+        
+    
+    def interruptonce(self,env,interrupttype,interruptlist,procs):
+        
+        for proc in procs:
+            if procs[proc] != None and procs[proc].is_alive and procs[proc].target != None:
+                print('++++++ Interrupt type: %s using: %s interrupt process: %s at time %d ++++++' % (interrupttype,interruptlist,proc,env.now))
+                procs[proc].interrupt(str(interruptlist))
+                for interrupt in interruptlist:
+                    interruptflags[interrupttype][interrupt] = False
+                    pass
+                yield env.timeout(0)
+                pass
+            else:
+                for interrupt in interruptlist:
+                    interruptflags[interrupttype][interrupt] = False
+                    pass
+                pass
+        pass
+
     def sysplayerinterrupt(self, env, defmove, attmove, usrmove):
         while True:
             # print(repr(interruptflags))
-            if interruptflags['def-off']['ipmutation']:
-                if 'att_controlandcommand_proc' in interruptporc:
-                    proc = interruptporc['att_controlandcommand_proc']
-                    if proc.is_alive and proc.target != None:
-                        print(
-                            '++++++ defense ip mutation interrupt offense at time %d ++++++' % (env.now))
-                        interruptflags['def-off']['ipmutation'] = False
-                        proc.interrupt('ipmutation')
-                        pass
-                    else:
-                        yield env.timeout(1)
-                        pass
+            interruptlist = self.interruptcheck()
+            procs = self.proccheck()
+            for interrupttype in interruptlist:
+                if len(interruptlist[interrupttype]) > 0:
+                    # print('interrupt type is: %s, interrupts are %s' % (interrupttype,interruptlist[interrupttype]))
+                    yield env.process(self.interruptonce(env,interrupttype,interruptlist[interrupttype],procs))
                     pass
                 else:
-                    yield env.timeout(1)
-                    pass
-                interruptflags['def-off']['ipmutation'] = False
-                yield env.timeout(1)
+                    continue
                 pass
-            else:
-                yield env.timeout(1)
-                pass
-            pass
-            if interruptflags['def-off']['osmutation']:
-                if 'att_controlandcommand_proc' in interruptporc:
-                    proc = interruptporc['att_controlandcommand_proc']
-                    if proc.is_alive and proc.target != None:
-                        print(
-                            '++++++ defense os mutation interrupt offense at time %d ++++++' % (env.now))
-                        interruptflags['def-off']['osmutation'] = False
-                        proc.interrupt('osmutation')
-                        pass
-                    else:
-                        yield env.timeout(1)
-                        pass
-                    pass
-                else:
-                    yield env.timeout(1)
-                    pass
-                interruptflags['def-off']['osmutation'] = False
-                yield env.timeout(1)
-                pass
-            else:
-                yield env.timeout(1)
-                pass
-            pass
-            if interruptflags['def-off']['serviceplatformmutation']:
-                if 'att_controlandcommand_proc' in interruptporc:
-                    proc = interruptporc['att_controlandcommand_proc']
-                    if proc.is_alive and proc.target != None:
-                        print(
-                            '++++++ defense service platform mutation interrupt offense at time %d ++++++' % (env.now))
-                        interruptflags['def-off']['serviceplatformmutation'] = False
-                        proc.interrupt('serviceplatformmutation')
-                        pass
-                    else:
-                        yield env.timeout(1)
-                        pass
-                    pass
-                else:
-                    yield env.timeout(1)
-                    pass
-                interruptflags['def-off']['serviceplatformmutation'] = False
-                yield env.timeout(1)
-                pass
-            else:
-                yield env.timeout(1)
-                pass
-            pass
+            yield env.timeout(1)   
+            # if interruptflags['def-off']['ipmutation']:
+            #     if proc_cc != None:
+            #         proc = proc_cc
+            #         print('before ip interrupt proc target:')
+            #         print(proc.target)
+            #         if proc.is_alive and proc.target != None:
+                        
+            #             print(
+            #                 '++++++ defense ip mutation interrupt offense at time %d ++++++' % (env.now))
+            #             interruptflags['def-off']['ipmutation'] = False
+            #             proc.interrupt('ipmutation')
+            #             print('after ip interrupt proc target:')
+            #             print(proc.target)
+            #             yield env.timeout(0)
+            #             pass
+            #         else:
+            #             interruptflags['def-off']['ipmutation'] = False
+            #             pass
+            #     else:
+            #         interruptflags['def-off']['ipmutation'] = False
+            #         pass
+
+            # if interruptflags['def-off']['osmutation']:
+            #     if proc_cc != None:
+            #         proc = proc_cc
+            #         print('before os interrupt proc target:')
+            #         print(proc.target)
+            #         if proc.is_alive and proc.target != None:
+            #             print(
+            #                 '++++++ defense os mutation interrupt offense at time %d ++++++' % (env.now))
+            #             interruptflags['def-off']['osmutation'] = False
+            #             proc.interrupt('osmutation')
+            #             print('after os interrupt proc target:')
+            #             print(proc.target)
+            #             yield env.timeout(0)
+            #             pass
+            #         else:
+            #             interruptflags['def-off']['osmutation'] = False
+            #             pass
+            #     else:
+            #         interruptflags['def-off']['osmutation'] = False
+            #         pass
+
+            # if interruptflags['def-off']['serviceplatformmutation']:
+            #     if 'att_controlandcommand_proc' in interruptporc:
+            #         proc = interruptporc['att_controlandcommand_proc']
+            #         if proc.is_alive and proc.target != None:
+            #             print(
+            #                 '++++++ defense service platform mutation interrupt offense at time %d ++++++' % (env.now))
+            #             interruptflags['def-off']['serviceplatformmutation'] = False
+            #             proc.interrupt('serviceplatformmutation')
+            #             pass
+            #         else:
+            #             yield env.timeout(1)
+            #             pass
+            #         pass
+            #     else:
+            #         yield env.timeout(1)
+            #         pass
+            #     interruptflags['def-off']['serviceplatformmutation'] = False
+            #     yield env.timeout(1)
+            #     pass
+            # else:
+            #     yield env.timeout(1)
+            #     pass
+            # pass
             
         pass
     pass
