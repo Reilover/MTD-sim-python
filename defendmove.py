@@ -154,7 +154,7 @@ class defendermove(object):
                 defstate['needdoneact']['ipmutation'] = False
                 # when ip mutation successed, cause an interruption which will catch by the attacker move and cause an expection as well.
                 globalvar.set_value('defview',defview)
-                yield env.process(self.definterrupt(env, ipholdingtime, 'ipmutation'))
+                yield env.process(self.definterrupt(env, defview['servernodes'][nodeindex], ipholdingtime, 'ipmutation'))
                 pass
             else:
                 print('++++++ Node %s does not enable IP mutation defense! ++++++')
@@ -196,7 +196,7 @@ class defendermove(object):
                 defstate['needdoneact']['osmutation'] = False
                 # defview['servernodes'][nodeindex].nodeworkingstate = 'up'
                 globalvar.set_value('defview',defview)
-                yield env.process(self.definterrupt(env, osholdingtime, 'osmutation'))
+                yield env.process(self.definterrupt(env, defview['servernodes'][nodeindex], osholdingtime, 'osmutation'))
                 pass
             pass
         pass
@@ -226,15 +226,21 @@ class defendermove(object):
                 defstate['needdoneact']['serviceplatformmutation'] = False
                 # defview['servernodes'][nodeindex].nodeworkingstate = 'up'
                 globalvar.set_value('defview',defview)
-                yield env.process(self.definterrupt(env, serviceplatformholdingtime, 'serviceplatformmutation'))
+                yield env.process(self.definterrupt(env, defview['servernodes'][nodeindex], serviceplatformholdingtime, 'serviceplatformmutation'))
                 pass
             pass
         pass
 
-    def definterrupt(self, env, holdingtime, interrupttype):
+    def ASLR(self,env,aslrholdingtime,defstate):# addrsss space layout randomization technique
+        # this method is not yield a process and only be activitied by service changing or crash
+        defview = globalvar.get_value('defview')
+
+        pass
+
+    def definterrupt(self, env, node, holdingtime, interrupttype):
         interruptflags = globalvar.get_value('interruptflags')
         if interrupttype == 'ipmutation':
-            interruptflags['def-off']['ipmutation'] = True
+            interruptflags[node.nodeid]['def-off']['ipmutation'] = True
             # print('Defense aciton %s interrupt! interrupt flag is %s'%(interrupttype,interruptflags['def-off']['ipmutation']))
             globalvar.set_value('interruptflags',interruptflags)
             yield env.timeout(0)
@@ -242,12 +248,12 @@ class defendermove(object):
         elif interrupttype == 'portmutation':
             pass
         elif interrupttype == 'osmutation':
-            interruptflags['def-off']['osmutation'] = True
+            interruptflags[node.nodeid]['def-off']['osmutation'] = True
             globalvar.set_value('interruptflags',interruptflags)
             yield env.timeout(0)
             pass
         elif interrupttype == 'serviceplatformmutation':
-            interruptflags['def-off']['serviceplatformmutation'] = True
+            interruptflags[node.nodeid]['def-off']['serviceplatformmutation'] = True
             globalvar.set_value('interruptflags',interruptflags)
             yield env.timeout(0)
             pass

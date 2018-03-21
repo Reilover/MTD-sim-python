@@ -210,7 +210,7 @@ class attackermove(object):
         malwarecraftexpaddress = []
         malwarecraftexptime = []
         attview = globalvar.get_value('attview')
-        defview = globalvar.get_value('defview')
+        # defview = globalvar.get_value('defview')
         for targetnode in attview['targetnodes']:
             weaponcrafttime = []
             print('------ target node: %s (os type: %s and service platform: %s) has: %d vuls and vullevel is: %s vulexplevel is: %s vulexpaddress is: %s ------' % (

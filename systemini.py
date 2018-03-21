@@ -134,9 +134,23 @@ def simini():
     attview['attackers'] = attackers
     # print(usrview['attnodes'][0].ip)
     # setup interrupt flags to save offense, defense and user operation interrupts
-    interruptflags['def-off'] = interruptflagsinit('def-off')
-    interruptflags['off-usr'] = interruptflagsinit('off-usr')
-    interruptflags['def-usr'] = interruptflagsinit('def-usr')
+    interrupttypes_list = ['def-off','off-usr','def-usr']
+    interruptflag_nodetypes_list = []
+    for servernode in servernodes:
+        interruptflag_playertypes_list = []
+        for interrupttype in interrupttypes_list:
+            interruptflag_playertypes_list.append((interrupttype,interruptflagsinit(interrupttype)))
+            pass
+        interruptflag_playertypes_dict = dict(interruptflag_playertypes_list)
+        interruptflag_nodetypes_list.append((servernode.nodeid,interruptflag_playertypes_dict))
+        pass
+    interruptflag_nodetypes_dict = dict(interruptflag_nodetypes_list)
+    interruptflags = copy.deepcopy(interruptflag_nodetypes_dict)
+
+
+
+
+
     globalvar.set_value('attview',attview)
     globalvar.set_value('defview',defview)
     globalvar.set_value('usrview',usrview)
