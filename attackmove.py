@@ -550,12 +550,19 @@ class attackermove(object):
                             pass
                         pass
                     else:
-                        print('------ target node: %s is not reachable at time: %d in ip: %d for real ip: is %d, reconnaissance will re-start! ------' %
+                        try:
+                            print('------ target node: %s is not reachable at time: %d in ip: %d for real ip: is %d, reconnaissance will re-start! ------' %
                                 (targetnode.nodeid, env.now, targetnode.ip, vulnode.ip))
-                        attview['attackerwinstate']['reconnaissance'] = False
-                        attstate['iniip'] = 0
-                        globalvar.set_value('attview',attview)
-                        yield env.timeout(attackholdingtimes)
+                            attview['attackerwinstate']['reconnaissance'] = False
+                            attstate['iniip'] = 0
+                            globalvar.set_value('attview',attview)
+                            yield env.timeout(attackholdingtimes)
+                            pass
+                        except simpy.Interrupt:
+                            print('------ CKC is interrupted at time %d! ------' % (env.now))
+                            pass
+
+                        
                         pass
                 else:
                     print('------ target node: %s is not online, C&C will try %d time step later! ------' % (

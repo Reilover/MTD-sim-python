@@ -33,38 +33,94 @@ class interruptmove(object):
         return interruptlistfornode
     
     def proccheck(self):
+        proc_be_list = None
+        proc_fe_list = None
+        proc_cc = None
         interruptproc = globalvar.get_value('interruptproc')
         if 'att_controlandcommand_proc' in interruptproc:
             proc_cc = interruptproc['att_controlandcommand_proc']
-        else:
-            proc_cc = None
-        procdict = {}
-        procdict['proc_cc'] = proc_cc
+        if 'ser_FEservice_proc_list' in interruptproc:
+            proc_fe_list = interruptproc['ser_FEservice_proc_list']
+            pass
+        if 'ser_BEservice_proc_list' in interruptproc:
+            proc_be_list = interruptproc['ser_BEservice_proc_list']
+            pass
 
+ 
+        procdict = {}
+        procdict['proc_att_cc'] = proc_cc
+        procdict['proc_ser_fe_list'] = proc_fe_list
+        procdict['proc_ser_be_list'] = proc_be_list   
         return procdict
-        
+    
+    def proctypecheck(self,procname,interrupttype):
+        proctype = procname.split('_')[1]
+        procinterruptflag = False
+        if interrupttype == 'def-off' and proctype == 'att':
+            procinterruptflag = True
+            pass 
+        elif interrupttype == 'def-usr' and (proctype == 'usr' or proctype == 'ser'):
+            procinterruptflag = True
+            pass
+        elif interrupttype == 'off-usr' and (proctype == 'usr' or proctype == 'ser'):
+            procinterruptflag = True
+            pass
+        else:
+            # print('Error Interrupt type! Please cheack!')
+            pass
+
+        return procinterruptflag
     
     def interruptonce(self,env,node,interrupttype,interruptlist,procs):
         interruptflags = globalvar.get_value('interruptflags')
         for proc in procs:
-            if procs[proc] != None and procs[proc].is_alive and procs[proc].target != None:
-                print('++++++ Interrupt type: %s using: %s interrupt process: %s at time %d ++++++' % (interrupttype,interruptlist,proc,env.now))
-                procs[proc].interrupt(repr(interruptlist))
-                for interrupt in interruptlist:
-                    interruptflags[node.nodeid][interrupttype][interrupt] = False
+            
+            if self.proctypecheck(proc,interrupttype):
+                if isinstance(procs[proc],list):
+                    for proc_alone in procs[proc]:
+                        if proc_alone != None and proc_alone.is_alive and proc_alone.target != None:
+                            
+                            
+                            print('++++++ Interrupt type: %s using: %s interrupt process: %s at time %d ++++++' % (interrupttype,interruptlist,proc,env.now))
+
+                            proc_alone.interrupt(interruptlist)
+                            for interrupt in interruptlist:
+                                interruptflags[node.nodeid][interrupttype][interrupt] = False
+                                pass
+                            globalvar.set_value('interruptflags',interruptflags)
+                            yield env.timeout(0)                      
+                            pass
+                        else:
+                            for interrupt in interruptlist:
+                                interruptflags[node.nodeid][interrupttype][interrupt] = False
+                            pass
+                            globalvar.set_value('interruptflags',interruptflags)
+                            pass
+                        pass
                     pass
-                globalvar.set_value('interruptflags',interruptflags)
-                yield env.timeout(0)
-                pass
-            else:
-                for interrupt in interruptlist:
-                    interruptflags[node.nodeid][interrupttype][interrupt] = False
+                else:
+                    if procs[proc] != None and procs[proc].is_alive and procs[proc].target != None:
+                        print('++++++ Interrupt type: %s using: %s interrupt process: %s at time %d ++++++' % (interrupttype,interruptlist,proc,env.now))
+                        procs[proc].interrupt(repr(interruptlist))
+                        for interrupt in interruptlist:
+                            interruptflags[node.nodeid][interrupttype][interrupt] = False
+                            pass
+                        globalvar.set_value('interruptflags',interruptflags)
+                        yield env.timeout(0)
+                        pass
+                    else:
+                        for interrupt in interruptlist:
+                            interruptflags[node.nodeid][interrupttype][interrupt] = False
+                            pass
+                        globalvar.set_value('interruptflags',interruptflags)
+                        pass
                     pass
+
                 pass
-                globalvar.set_value('interruptflags',interruptflags)
+                   
         pass
 
-    def sysplayerinterrupt(self, env, defmove, attmove, usrmove):
+    def sysplayerinterrupt(self, env):
         while True:
             # print(repr(interruptflags))
             defview = globalvar.get_value('defview')
@@ -72,6 +128,7 @@ class interruptmove(object):
             procs = self.proccheck()
             for node in defview['servernodes']:
                 for interrupttype in interruptlist[node.nodeid]:
+                    # print(len(interruptlist[node.nodeid][interrupttype]))
                     if len(interruptlist[node.nodeid][interrupttype]) > 0:
                         # print('interrupt type is: %s, interrupts are %s' % (interrupttype,interruptlist[interrupttype]))
                         yield env.process(self.interruptonce(env,node,interrupttype,interruptlist[node.nodeid][interrupttype],procs))
