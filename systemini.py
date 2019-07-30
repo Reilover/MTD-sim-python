@@ -108,6 +108,8 @@ def simini():
     vulleveltypes = ['C', 'S', 'V']
     vulexpleveltypes = ['E', 'C', 'H']
     maxvulnum = 3
+    fecpunum = 1
+    beionum = 1
     Simulationstate = simstate(nodenums, servernums, usernums, attacknums, ipsegment,
                                ostype, servicetype, serviceplatform, vulleveltypes, vulexpleveltypes, maxvulnum)
     # we initialize node's vuls state according to os type, service platform and service type, which is saved to defview for os and service mutation!
@@ -149,7 +151,9 @@ def simini():
 
 
 
-
+    servicequeueini(fecpunum,beionum)
+    globalvar.set_value('fecupnum',fecpunum)
+    globalvar.set_value('beionum',beionum)
 
     globalvar.set_value('attview',attview)
     globalvar.set_value('defview',defview)
@@ -430,4 +434,26 @@ def sysplayerini(type, simstate):
         print('no such type of system player! please check')
         pass
 
+    pass
+
+
+
+def servicequeueini(fecpunum,beionum):
+    FEqueueset = sysutil.queueini()
+    BEqueueset = sysutil.queueini()
+    FE_cpu_queuelist = []
+    BE_io_queuelist = []
+    for i in range(fecpunum):
+        FE_cpu_queueset = sysutil.queueini()
+        FE_cpu_queuelist.append(FE_cpu_queueset)
+        pass
+    for i in range(beionum):
+        BE_io_queueset = sysutil.queueini()
+        BE_io_queuelist.append(BE_io_queueset)
+        pass
+
+    globalvar.set_value('FEqueueset',FEqueueset)
+    globalvar.set_value('BEqueueset',BEqueueset)
+    globalvar.set_value('FE_cpu_queuelist',FE_cpu_queuelist)
+    globalvar.set_value('BE_io_queuelist',BE_io_queuelist)
     pass

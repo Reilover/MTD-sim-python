@@ -241,6 +241,7 @@ class defendermove(object):
         interruptflags = globalvar.get_value('interruptflags')
         if interrupttype == 'ipmutation':
             interruptflags[node.nodeid]['def-off']['ipmutation'] = True
+            interruptflags[node.nodeid]['def-usr']['ipmutation'] = True
             # print('Defense aciton %s interrupt! interrupt flag is %s'%(interrupttype,interruptflags['def-off']['ipmutation']))
             globalvar.set_value('interruptflags',interruptflags)
             yield env.timeout(0)
@@ -249,11 +250,13 @@ class defendermove(object):
             pass
         elif interrupttype == 'osmutation':
             interruptflags[node.nodeid]['def-off']['osmutation'] = True
+            interruptflags[node.nodeid]['def-usr']['osmutation'] = True
             globalvar.set_value('interruptflags',interruptflags)
             yield env.timeout(0)
             pass
         elif interrupttype == 'serviceplatformmutation':
             interruptflags[node.nodeid]['def-off']['serviceplatformmutation'] = True
+            interruptflags[node.nodeid]['def-usr']['serviceplatformmutation'] = True
             globalvar.set_value('interruptflags',interruptflags)
             yield env.timeout(0)
             pass
