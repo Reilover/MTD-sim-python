@@ -1,8 +1,12 @@
 import time
 import math
 import globalvar
+# import tkinter
+import json
 from tkinter import *
-
+from tkinter import filedialog,dialog
+import os
+import webbrowser
 
 class node:
     def __init__(self):
@@ -37,7 +41,7 @@ class A:
     def __init__(self, master=None):
         self.root = master
         self.root.geometry('800x700')
-        self.root.title('动态目标防御评估与优化仿真测试软件-界面测试')
+        self.root.title('动态目标防御评估与优化仿真测试软件-界面测试*')
         # self.root.bind("<Motion>", self.call_back)
         # 初始化时定义frame
         self.frm_topo = Frame(self.root)
@@ -57,8 +61,13 @@ class A:
     def call_back(self, event):
         print('现在的位置是：', event.x_root, event.y_root)
 
-    def do_job(self):
+    def do_job(self,event):
         print("hello world")
+        print(event)
+
+    def editnode(self):
+        
+        pass
 
     def run_simulation(self):
 
@@ -237,10 +246,6 @@ class A:
 
     def bindnodes(self):
         print("bind nodes to topo")
-        var_nowtopo = StringVar()  # Label显示的文字要是会变化的话，只接受这种类型的变量
-        var_nowtopo.set("默认模拟实验配置已加载！")
-        label_nowtopo_frm_topo = Label(self.frm_topo, fg='black', textvariable=var_nowtopo,
-                                       font='Verdana 10').place(x=50, y=0, height=30, width=500)
         self.canvas_topo.place(x=50, y=50, width=500, height=400)
         listi = 0
         node_list_get = []
@@ -251,6 +256,12 @@ class A:
             pass
         print("%s", node_list_get)
         self.drawtopo(node_list_get)
+
+        var_nowtopo = StringVar()  # Label显示的文字要是会变化的话，只接受这种类型的变量
+        var_nowtopo.set("默认模拟实验配置已加载！")
+        label_nowtopo_frm_topo = Label(self.frm_topo, fg='black', textvariable=var_nowtopo,
+                                       font='Verdana 10').place(x=50, y=0, height=30, width=500)
+
 
     def insert_demo(self):
         print("Insert demo!")
@@ -272,7 +283,45 @@ class A:
         self.list_demo.place(x=3, y=30, width=140)
         # scrolly.config(command=node_list.yview)
         self.list_demo.bind('<Double-Button-1>', self.shownodemetric)
+        self.list_demo.bind('<Button-3>',self.do_job)
         self.bindnodes()
+
+    def openconfigfile(self):
+        print('open user config files!')
+        filename = filedialog.askopenfilename(title='打开用户定义配置文件')
+        print(filename)
+        filetype = filename.split('.')[-1]
+        if filetype != 'json':
+            dialog.Dialog(None, {'title': 'File Type Error', 'text': '打开文件类型错误', 'bitmap': 'error', 'default': 0,
+                                    'strings': ('OK', 'Cancle')})
+            pass
+        else:
+            with open(filename,'r') as f:
+                simulationsate = eval(json.load(f))
+                pass
+            if f.closed:
+                print('User Config file read!')
+            pass
+    
+    def saveconfigfile(self):
+        file_path = filedialog.asksaveasfilename(title=u'保存文件')
+        print('保存文件：', file_path)
+
+        if file_path is not None:
+            with open(file=file_path, mode='w', encoding='utf-8') as file:
+                dialog.Dialog(None, {'title': 'File Saved', 'text': '保存完成', 'bitmap': 'warning', 'default': 0,
+                                    'strings': ('OK', 'Cancle')})
+                print('保存完成')
+            file.close()
+        pass
+
+        
+    def gethelps(self):
+        dialog.Dialog(None, {'title': 'Get Helps', 'text': 'MTD模拟环境V1.0', 'bitmap': 'question', 'default': 0,
+                            'strings': ('OK', 'Cancle')})
+        webbrowser.open("https://github.com/Reilover/MTD-sim-python", new=0)
+        print('获取帮助')
+        pass
 
     def createpage(self):
         # 添加menu菜单项
@@ -282,8 +331,8 @@ class A:
         filemenu = Menu(menu, tearoff=0)
         menu.add_cascade(label='文件', menu=filemenu)
         filemenu.add_command(label='新建', command=self.insert_demo)
-        filemenu.add_command(label='打开', command=self.do_job)
-        filemenu.add_command(label='保存', command=self.do_job)
+        filemenu.add_command(label='打开', command=self.openconfigfile)
+        filemenu.add_command(label='保存', command=self.saveconfigfile)
         filemenu.add_separator()    # 添加一条分隔线
         # 用tkinter里面自带的quit()函数
         filemenu.add_command(label='退出', command=self.root.quit)    
@@ -292,7 +341,7 @@ class A:
         runmenu = Menu(menu, tearoff=0)
         menu.add_cascade(label='运行', menu=runmenu)
         runmenu.add_command(label='模拟运行', command=self.run_simulation)
-        runmenu.add_command(label='结果分析', command=self.do_job)
+        # runmenu.add_command(label='结果分析', command=self.do_job)
         
         #分析菜单初始化
         runmenu = Menu(menu, tearoff=0)
@@ -304,7 +353,7 @@ class A:
         # 帮助菜单初始化
         helpmenu = Menu(menu, tearoff=0)
         menu.add_cascade(label='帮助',menu=helpmenu)
-        helpmenu.add_command(label='查看帮助', command=self.do_job)
+        helpmenu.add_command(label='查看帮助', command=self.gethelps)
         
         # 生成对frame的配置（位置，大小，颜色等等）
         # self.frm_option.config(bg='grey', height=30, width=760)
