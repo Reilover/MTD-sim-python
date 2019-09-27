@@ -28,16 +28,20 @@ class usermove(object):
             if Usrreqpool.level > 0:
                 yield Usrreqpool.get(1)
                 reqcount = reqcount + 1
-                yield self.env.timeout(int(random.expovariate(1.0 / self.usrinterval)))
-                reqid = self.usrname + '_' + str(self.usrid) + '-' + str(reqcount) + '@' + str(self.env.now)
+
+                # randomexp = int(random.expovariate(1.0 / self.usrinterval))
+
+                yield env.timeout(int(random.expovariate(1.0 / self.usrinterval)))
+                reqid = self.usrname + '_' + str(self.usrid) + '-' + str(reqcount) + '@' + str(env.now)
                 usrreq = request.request(reqid, {}, {}, {},-1)
-                usrreq.reqgentime['usrgentime'] = self.env.now
+                usrreq.reqgentime['usrgentime'] = env.now
+                print("====Usr@%d generate req@%s at time %d===="%(self.usrid,reqid,env.now))
                 requestgenlistsave.append(usrreq)
                 if Threadpool.level > 0: # if FE's thread pool is underfill, then put request in the service queue
                     yield Threadpool.get(1)
                     # print(usrreq)
                     if FEqueueset['waiting_queue'].isempty():
-                        usrreq.reqwaittime['FEwaittime'] = self.env.now
+                        usrreq.reqwaittime['FEwaittime'] = env.now
                         FEqueueset['service_queue'].enqueue(usrreq)
                         # FEqueueset['service_queue'].showQueue()
                         print('FE\'s thread is underfill and FE waiting queue is empty, request %s is saved in FE service queue'%(usrreq.reqid))
@@ -47,21 +51,21 @@ class usermove(object):
                         reqwait = FEqueueset['waiting_queue'].dequeue()
                         FEqueueset['service_queue'].enqueue(reqwait)
                         print('FE\'s thread is underfill and FE waiting queue is not empty, request %s is saved in FE service queue'%(reqwait.reqid))
-                        usrreq.reqwaittime['FEwaittime'] = self.env.now
+                        usrreq.reqwaittime['FEwaittime'] = env.now
                         FEqueueset['waiting_queue'].enqueue(usrreq)
                         print('request %s save in FE waiting queue'%(usrreq.reqid))
                         globalvar.set_value('FEqueueset',FEqueueset)
                         pass
                     pass
                 else: # else put request in the waiting queue
-                    usrreq.reqwaittime['FEwaittime'] = self.env.now
+                    usrreq.reqwaittime['FEwaittime'] = env.now
                     FEqueueset['waiting_queue'].enqueue(usrreq)
                     print('FE\'s thread is full, request %s save in FE waiting queue'%(usrreq.reqid))
                     globalvar.set_value('FEqueueset',FEqueueset)
                     pass
                 pass
             else:
-                yield self.env.timeout(1)
+                yield env.timeout(1)
                 pass
             pass    
         pass

@@ -20,11 +20,11 @@ class datacollectandanalysis(object):
             attview = globalvar.get_value('attview')
             attstateintime = []
             if 'attackerwinstate' in attview:
-                attwinstate = attview['attackerwinstate']
-                attstateintime.append(attwinstate)
-                f = open('E:/work/MTDsim/SASQF-Simpy/test.txt', 'a+')
-                f.write(str(attwinstate)+' '+str(env.now)+'\r\n')
-                f.close()
+                # attwinstate = attview['attackerwinstate']
+                # attstateintime.append(attwinstate)
+                # f = open('E:/work/MTDsim/SASQF-EOMTD-Simpy/effresult.txt', 'a+')
+                # f.write(str(attwinstate)+' '+str(env.now)+'\r\n')
+                # f.close()
                 yield env.timeout(1)
                 pass
             else:

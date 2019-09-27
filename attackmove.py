@@ -48,7 +48,7 @@ class attackermove(object):
         attstate['C&Ctype'] = attstrategy.split(
             '-')[len(attstrategy.split('-')) - 1]
         # for C&C time, 50 time step is a relative value.
-        attstate['C&Ctime'] = 100
+        attstate['C&Ctime'] = 50*10
         for vulnodesnum in range(len(attstate['vulnodes'])):
             vulnodeid = 'target_' + str(vulnodesnum + 1)
             vulnode = systemini.node(-1, -1, -1, -1, -1, -1, -1, -
@@ -67,6 +67,16 @@ class attackermove(object):
                 yield env.process(self.attackonce(env, undonephase[0], attstate))
             else:
                 print('Attack successed at time %d, start data collecting!' % (env.now))
+                reqlist = globalvar.get_value('reqtosave')
+                reqprocesstimelist = []
+                reqprocesstime_sum = 0
+                for req in reqlist:
+                    reqprocesstime = req.reqfintime - req.reqgentime['usrgentime']
+                    reqprocesstimelist.append(reqprocesstime)
+                    reqprocesstime_sum = reqprocesstime_sum + reqprocesstime
+                    pass
+                reqprocesstime_avg = reqprocesstime_sum/(len(reqprocesstimelist))
+                print('The average processed time for number of %d request is %d' % (len(reqprocesstimelist),reqprocesstime_avg))
                 exit()
                 pass
             pass
@@ -133,19 +143,19 @@ class attackermove(object):
             yield env.process(self.att_reconnaissance(env, attstate, attackholdingtimes))
             pass
         elif atttype == 'weapon':
-            attackholdingtimes = 2
+            attackholdingtimes = 200
             yield env.process(self.att_weapon(env, attstate, attackholdingtimes))
             pass
         elif atttype == 'delivery':
-            attackholdingtimes = 2
+            attackholdingtimes = 5
             yield env.process(self.att_delivery(env, attstate, attackholdingtimes))
             pass
         elif atttype == 'exploition':
-            attackholdingtimes = 2
+            attackholdingtimes = 10
             yield env.process(self.att_exploition(env, attstate, attackholdingtimes))
             pass
         elif atttype == 'installation':
-            attackholdingtimes = 2
+            attackholdingtimes = 30
             yield env.process(self.att_installation(env, attstate, attackholdingtimes))
             pass
         elif atttype == 'C&C':
@@ -217,16 +227,16 @@ class attackermove(object):
                 targetnode.nodeid, targetnode.os, targetnode.serviceplatform, targetnode.vulnum, targetnode.vullevel, targetnode.vulexplevel, repr(targetnode.vulexpaddress)))
             for targetvul in range(targetnode.vulnum):
                 if targetnode.vulexplevel[targetvul] == 'E':
-                    wct = 100
+                    wct = 200
                     pass
                 elif targetnode.vulexplevel[targetvul] == 'C':
-                    wct = 300
+                    wct = 200
                     pass
                 elif targetnode.vulexplevel[targetvul] == 'H':
-                    wct = 500
+                    wct = 200
                     pass
                 elif targetnode.vulexplevel[targetvul] == 'Zday':
-                    wct = 100
+                    wct = 200
                     pass
                 else:
                     print("------ Error vuls' exploition level, please check ------")
@@ -281,7 +291,7 @@ class attackermove(object):
             print('------ malware: %s is already crafted! ------' % (malwaresave.malwareid))
             attview['attackerwinstate']['weapon'] = True
             globalvar.set_value('attview',attview)
-            attackholdingtimes = 2
+            attackholdingtimes = 1
             yield env.timeout(attackholdingtimes)
             pass
         else:
@@ -289,7 +299,7 @@ class attackermove(object):
                         (malwarecrafttime))
             print('------ malware weapon craft start at time: %d ------' % (env.now))
             attview['malwaresave'].append(malwaresave)
-            attackholdingtimes = min(malwarecrafttime)
+            attackholdingtimes = 20*min(malwarecrafttime)
             yield env.timeout(attackholdingtimes)
             attview['attackerwinstate']['weapon'] = True
             globalvar.set_value('attview',attview)
@@ -536,17 +546,23 @@ class attackermove(object):
                                 pass
                             pass
                         else:
-                            print(
+                            try:
+                                print(
                                 '------ target node back door is not exist, reconnaissance, weapon craft, delivery, exploition and installation will re-start at time %d------' %
                                 (attackholdingtimes + env.now))
-                            attview['attackerwinstate']['weapon'] = False
-                            attview['attackerwinstate']['reconnaissance'] = False
-                            attview['attackerwinstate']['delivery'] = False
-                            attview['attackerwinstate']['exploition'] = False
-                            attview['attackerwinstate']['installation'] = False
-                            attstate['iniip'] = 0
-                            globalvar.set_value('attview',attview)
-                            yield env.timeout(attackholdingtimes)
+                                attview['attackerwinstate']['weapon'] = False
+                                attview['attackerwinstate']['reconnaissance'] = False
+                                attview['attackerwinstate']['delivery'] = False
+                                attview['attackerwinstate']['exploition'] = False
+                                attview['attackerwinstate']['installation'] = False
+                                attstate['iniip'] = 0
+                                globalvar.set_value('attview',attview)
+                                yield env.timeout(attackholdingtimes)
+                                pass
+                            except simpy.Interrupt:
+                                print('------ CKC is interrupted at time %d! ------' % (env.now))
+                                pass
+                            
                             pass
                         pass
                     else:

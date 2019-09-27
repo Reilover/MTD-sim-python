@@ -82,12 +82,30 @@ class interruptmove(object):
                             
                             
                             print('++++++ Interrupt type: %s using: %s interrupt process: %s at time %d ++++++' % (interrupttype,interruptlist,proc,env.now))
+                            proc_alone.interrupt(cause=interruptlist)
 
-                            proc_alone.interrupt(interruptlist)
                             for interrupt in interruptlist:
                                 interruptflags[node.nodeid][interrupttype][interrupt] = False
                                 pass
                             globalvar.set_value('interruptflags',interruptflags)
+
+                            interruptcause = {}
+                            interruptcause['BE'] = False
+                            interruptcause['FE'] = False
+                            if 'dataformatmutation' in interruptlist:
+                                interruptcause['BE'] = True
+                                pass
+                            elif 'ipmutation' in interruptlist:
+                                interruptcause['FE'] = True
+                                pass
+                            elif 'osmutation' in interruptlist:
+                                interruptcause['FE'] = True
+                                pass
+                            elif 'serviceplatformmutation' in interruptlist:
+                                interruptcause['FE'] = True
+                                pass
+                            interruptcause['interruptlist'] = interruptlist
+                            globalvar.set_value('interruptcause',interruptcause)
                             yield env.timeout(0)                      
                             pass
                         else:

@@ -26,7 +26,8 @@ globalvar.set_value('datatosave',datatosave)
 
 class simstate(object):
     #define simulation states
-    def __init__(self, nodenum, servernum, usernum, attackernum, ipsegment, nodeostypes, nodeservicetypes, nodeserviceplatform, vulleveltypes, vulexpleveltypes, maxvulnum):
+    def __init__(self, nodenum, servernum, usernum, attackernum, ipsegment, nodeostypes, nodeservicetypes, nodeserviceplatform, vulleveltypes, 
+                        vulexpleveltypes, maxvulnum,fecpunum,beionum,perthreadsize,perconnectionsize,usrnummax,FEinterval,BEinterval):
         self.nodenum = nodenum
         self.servernum = servernum
         self.usernum = usernum
@@ -39,6 +40,14 @@ class simstate(object):
         self.vulexpleveltypes = vulexpleveltypes
         #self.defippool = defippool #defippool is not defined in here
         self.maxvulnum = maxvulnum
+        self.fecpunum = fecpunum
+        self.beionum = beionum
+        self.perthreadsize = perthreadsize
+        self.perconnectionsize  = perconnectionsize
+        self.usrnummax = usrnummax
+        self.FEinterval = FEinterval
+        self.BEinterval = BEinterval
+
         if self.nodenum != (self.servernum + self.usernum + self.attackernum):
             self.nodenum = self.servernum + self.usernum + self.attackernum
 
@@ -91,27 +100,41 @@ class malware(object):
         self.exploitationtime = exploitationtime
         self.targetnode = targetnode
 
-def simini():
+def simini(configtype,configdata):
     #first, we initialize simulaiton states
-
-    servernums = 1
-    attacknums = 1
-    usernums = 1
-    nodenums = servernums + attacknums + usernums
-    ipsegment = 'C'
-    ostype = ['Windows', 'Linux']
-    servicetype = ['FTP', 'HTTP', 'Media']
-    serviceplatform = {}
-    serviceplatform['FTP'] = ['MIT', 'IBM', 'Stanford']
-    serviceplatform['HTTP'] = ['IIS', 'Ngnix', 'Apache']
-    serviceplatform['Media'] = ['Flash', 'Clint']
-    vulleveltypes = ['C', 'S', 'V']
-    vulexpleveltypes = ['E', 'C', 'H']
-    maxvulnum = 3
-    fecpunum = 1
-    beionum = 1
-    Simulationstate = simstate(nodenums, servernums, usernums, attacknums, ipsegment,
-                               ostype, servicetype, serviceplatform, vulleveltypes, vulexpleveltypes, maxvulnum)
+    if configtype == 'user':
+        Simulationstateuser = simstate(-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1)
+        Simulationstateuser.__dict__.update(configdata)
+        Simulationstate = Simulationstateuser
+        pass
+    else:
+        servernums = 1
+        attacknums = 1
+        usernums = 1
+        nodenums = servernums + attacknums + usernums
+        ipsegment = 'C'
+        ostype = ['Windows', 'Linux']
+        servicetype = ['FTP', 'HTTP', 'Media']
+        serviceplatform = {}
+        serviceplatform['FTP'] = ['MIT', 'IBM', 'Stanford']
+        serviceplatform['HTTP'] = ['IIS', 'Ngnix', 'Apache']
+        serviceplatform['Media'] = ['Flash', 'Clint']
+        vulleveltypes = ['C', 'S', 'V']
+        vulexpleveltypes = ['E', 'C', 'H']
+        maxvulnum = 3
+        fecpunum = 1
+        beionum = 1
+        perthreadsize = 30
+        perconnectionsize = 40
+        usrnummax = 50
+        FEinterval = 5
+        BEinterval = 3
+        Simulationstate = simstate(nodenums, servernums, usernums, attacknums, ipsegment,
+                                ostype, servicetype, serviceplatform, vulleveltypes, 
+                                vulexpleveltypes, maxvulnum,fecpunum,beionum,perthreadsize,perconnectionsize,
+                                usrnummax,FEinterval,BEinterval)
+        pass
+    
     # we initialize node's vuls state according to os type, service platform and service type, which is saved to defview for os and service mutation!
     vulstate = vulsini('random',Simulationstate)
     defview['vulstate'] = vulstate
@@ -134,6 +157,13 @@ def simini():
     usrview['systemusers'] = systemusers
     defview['defenders'] = defenders
     attview['attackers'] = attackers
+    usrview['fecpunum'] = Simulationstate.fecpunum
+    usrview['beionum'] = Simulationstate.beionum
+    usrview['perthreadsize'] = Simulationstate.perthreadsize
+    usrview['perconnectionsize'] = Simulationstate.perconnectionsize
+    usrview['usrnummax'] = Simulationstate.usrnummax
+    usrview['FEinterval'] = Simulationstate.FEinterval
+    usrview['BEinterval'] = Simulationstate.BEinterval
     # print(usrview['attnodes'][0].ip)
     # setup interrupt flags to save offense, defense and user operation interrupts
     interrupttypes_list = ['def-off','off-usr','def-usr']
@@ -149,16 +179,16 @@ def simini():
     interruptflag_nodetypes_dict = dict(interruptflag_nodetypes_list)
     interruptflags = copy.deepcopy(interruptflag_nodetypes_dict)
 
-
-
-    servicequeueini(fecpunum,beionum)
-    globalvar.set_value('fecupnum',fecpunum)
-    globalvar.set_value('beionum',beionum)
+    servicequeueini(Simulationstate)
 
     globalvar.set_value('attview',attview)
     globalvar.set_value('defview',defview)
     globalvar.set_value('usrview',usrview)
     globalvar.set_value('interruptflags',interruptflags)
+    
+    Simulationstatedict = sysutil.props_with_(Simulationstate)
+    globalvar.set_value('simulationstate',Simulationstatedict)
+    
     pass
 
 
@@ -386,7 +416,7 @@ def sysplayerini(type, simstate):
     elif type == 'def':
         defstrategy = ['ipmutation', 'osmutation', 'serviceplatformmutation']
         defobjective = {}
-        defobjective['ippool'] = [20, 100, 200]
+        defobjective['ippool'] = [100, 200, 500]
         defobjective['portpool'] = [200, 1000, 5000]
         defobjective['ospool'] = simstate.nodeostypes  # Windows and Linux
         defobjective['servicepool'] = {}
@@ -423,8 +453,8 @@ def sysplayerini(type, simstate):
         defobjective['ipfreq'] = [30, 100, 300]  # ip change frequency (s)
         defobjective['portfreq'] = [50, 150, 300]  # port chagne frequency (s)
         # service chagne frequency (s)
-        defobjective['servicefreq'] = [100, 300, 1200]
-        defobjective['osfreq'] = [200, 600, 1200]  # OS chagne frequency (s)
+        defobjective['servicefreq'] = [300, 300, 1200]
+        defobjective['osfreq'] = [500, 600, 1200]  # OS chagne frequency (s)
         defender = sysplayer(defstrategy, defobjective, -1)
         return defender
     elif type == 'usr':
@@ -438,16 +468,16 @@ def sysplayerini(type, simstate):
 
 
 
-def servicequeueini(fecpunum,beionum):
+def servicequeueini(simstate):
     FEqueueset = sysutil.queueini()
     BEqueueset = sysutil.queueini()
     FE_cpu_queuelist = []
     BE_io_queuelist = []
-    for i in range(fecpunum):
+    for i in range(simstate.fecpunum):
         FE_cpu_queueset = sysutil.queueini()
         FE_cpu_queuelist.append(FE_cpu_queueset)
         pass
-    for i in range(beionum):
+    for i in range(simstate.beionum):
         BE_io_queueset = sysutil.queueini()
         BE_io_queuelist.append(BE_io_queueset)
         pass

@@ -4,7 +4,7 @@ import random
 
 global defview
 global interruptflags
-defview = globalvar.get_value('defview')
+# defview = globalvar.get_value('defview')
 interruptflags = globalvar.get_value('interruptflags')
 
 class defendermove(object):
@@ -28,14 +28,75 @@ class defendermove(object):
         defstate['needdoneact']['portmutation'] = False
         defstate['needdoneact']['serviceplatformmutation'] = False
         # initializing action frequency or period, trigger point is offer in next version
-        defstate['ipfreq'] = ipfreq[1]
-        defstate['portfreq'] = portfreq[1]
-        defstate['osfreq'] = osfreq[0]
-        defstate['serviceplatformfreq'] = serviceplatformfreq[0]
+        # defstate['ipfreq'] = ipfreq[1]
+        # defstate['portfreq'] = portfreq[1]
+        # defstate['osfreq'] = osfreq[0]
+        # defstate['serviceplatformfreq'] = serviceplatformfreq[0]
+        nomtd = 1000000000000000000
+        # defstate['ipfreq'] = nomtd
+        # defstate['portfreq'] = nomtd
+        # defstate['osfreq'] = nomtd
+        # defstate['serviceplatformfreq'] = nomtd
+        ipfreqlist = [50,100,200]
+        ipfreqlistrandom = [100,100,50,50,50,50,100,100,100,100,100,100,100,50,100,100,200,200,100,100,100,50,100,50,50,100,200]
+        ipfreqlistql = [100,50,50,50,50,50,100,50,50,50,50,100,50,50,50,50,50,50,50,50,50,50,50,50,50,50,100,50]
+        ipfreqlistsarsa = [50,100,100,100,100,100,100,100,100,50,100,100,100,100,200,50,50,100,100,100,100,100,100,100,50,100,100,100,200,100,100,50,100,100,100,100,100,50,50,100,100,100,100,100,100,200,50,100,100,100,100,100,100,100,50,100,100,200,100,50,100,100,100,100,100,100,100,100,50,100,100,100,200,100,100,100,100,100,50,100,100,50,200,200,100,200,50,200]
+        osfreqlist = [200,400,600]
+        osfreqlistrandom = [500,500,500,500,500,500,500,500,500,500,500,500,500,500,500,500,500,800,800,800,800,800,800,800,800,800,800]
+        osfreqlistql = [800,500,500,500,500,500,500,500,500,500,500,500,500,500,500,500,500,500,500,500,500,500,500,500,500,500,500,500]
+        osfreqlistsarsa = [500,500,500,500,500,500,500,500,500,500,500,500,500,500,1000,500,500,500,500,500,500,500,500,500,500,500,500,500,1000,500,500,500,500,500,500,500,500,500,500,500,500,500,500,500,500,1000,500,500,500,500,500,500,500,500,500,500,500,1000,500,500,500,500,500,500,500,500,500,500,500,500,500,500,1000,500,500,500,500,500,500,500,500,500,500,500,500,500,500,1000]
+        serviceplatformfreqlist = [500,800,1000]
+        serviceplatformfreqlistrandom = [200,200,600,600,600,600,600,600,600,600,200,200,600,600,600,600,600,600,600,400,400,400,400,400,400,600,600]
+        serviceplatformfreqlistql = [400,600,600,600,600,600,600,600,600,600,600,600,600,600,600,600,600,600,600,600,600,600,600,600,600,600,600,600]
+        serviceplatformfreqlistsarsa = [200,200,200,600,200,200,200,200,200,200,200,200,200,200,600,200,200,200,200,200,200,200,200,200,200,200,200,200,600,200,200,200,200,200,200,200,200,200,200,200,200,200,200,200,200,600,200,200,200,200,200,200,200,200,200,200,200,600,200,200,200,200,200,200,200,200,200,200,200,200,200,200,600,200,200,200,200,200,200,200,200,200,200,200,200,600,200,600]
+        # defstate['ipfreq'] = 200
+        defstate['portfreq'] = nomtd
+        # defstate['osfreq'] = 1000
+        # defstate['serviceplatformfreq'] = 600
+        defstate['ipfreq'] = ipfreqlistrandom
+        defstate['osfreq'] = osfreqlistrandom
+        defstate['serviceplatformfreq'] = serviceplatformfreqlistrandom
+
+        defstate['ippool'] = defview['defenders'].objective['ippool']
+        ippoollist = [50,100,200]
+        ippoollistrandom = [50,50,100,100,100,50,100,200,50,50,200,100,50,200,50,200,100,100,200,200,200,100,200,100,100,200,100]
+        ippoollistql = [50,50,50,50,50,50,100,50,50,50,50,200,50,50,50,50,50,50,200,50,50,50,50,50,50,50,100,50]
+        ippoollistsarsa = [50,50,50,50,50,50,100,50,100,50,50,50,50,50,200,50,50,50,50,50,50,50,50,50,50,50,50,50,200,50,50,50,50,50,50,50,50,200,50,50,50,50,50,50,50,200,50,50,50,200,50,50,50,50,50,50,50,200,50,50,50,50,50,50,50,50,50,50,50,50,50,50,200,50,50,50,50,50,50,50,50,50,100,100,50,100,50,200]
+        ospoollistrandom = []
+        ospoollistql = []
+        ospoollistsarsa = []
+        serviceplatformpoollistrandom = []
+        serviceplatformpoollistql = []
+        serviceplatformpoollistsarsa = []
+        
+        defstate['ippool'] = ippoollistsarsa
+        defstate['ospool'] = ippoollistsarsa
+        defstate['serviceplatformpool'] = ippoollistsarsa
+
+        defstate['ipfreqtime'] = []
+        defstate['ipfreqtime'].append(defstate['ipfreq'][0])
+        defstate['ipfreqnext'] = []
+        defstate['ipfreqnext'].append(1)
+        defstate['osfreqtime'] = []
+        defstate['osfreqtime'].append(defstate['osfreq'][0])
+        defstate['osfreqnext'] = []
+        defstate['osfreqnext'].append(1)
+        defstate['serviceplatformfreqtime'] = []
+        defstate['serviceplatformfreqtime'].append(defstate['serviceplatformfreq'][0])
+        defstate['serviceplatformfreqnext'] = []
+        defstate['serviceplatformfreqnext'].append(1)
+
+        defstate['ippoolnow'] = []
+        defstate['ippoolnow'].append(0)
+        defstate['ospoolnow'] = []
+        defstate['ospoolnow'].append(0)
+        defstate['serviceplatformpoolnow'] = []
+        defstate['serviceplatformpoolnow'].append(0)
         # initializing defense action holding time
         defstate['defholdingtime'] = {}
         while True:
-            needdoneact = self.defactioncheck(env, defstate)
+            defstate = self.defactioncheck(env, defstate)
+            needdoneact = sysutil.get_keys(defstate['needdoneact'], True)
             if len(needdoneact) > 0:
                 # print('++++++ defender need done action at time %d including: %s ++++++' %
                 #       (env.now, repr(needdoneact)))
@@ -49,20 +110,121 @@ class defendermove(object):
 
     # given the env time and defense states to set need done action flags and return need done action list
     def defactioncheck(self, env, defstate):
-        if env.now % defstate['ipfreq'] == 0 and env.now != 0:
-            defstate['needdoneact']['ipmutation'] = True
+        if isinstance(defstate['ipfreq'],int):
+            if env.now % defstate['ipfreq'] == 0 and env.now != 0:
+                defstate['needdoneact']['ipmutation'] = True
+                pass
             pass
+        elif isinstance(defstate['ipfreq'],list):
+            # print(len(defstate['ipfreqtime']))
+            if len(defstate['ipfreqtime']) == 1:
+                if env.now == defstate['ipfreqtime'][-1]:
+                    defstate['needdoneact']['ipmutation'] = True
+                    nextchangetime = defstate['ipfreqtime'][-1]+defstate['ipfreq'][defstate['ipfreqnext'][-1]]
+                    defstate['ipfreqtime'].append(nextchangetime)
+                    defstate['ipfreqnext'].append(defstate['ipfreqnext'][-1]+1)
+                    
+                    pass
+                pass
+            else:
+                if env.now == defstate['ipfreqtime'][-1]:
+                    defstate['needdoneact']['ipmutation'] = True
+                    nextchangetime = defstate['ipfreqtime'][-1]+defstate['ipfreq'][defstate['ipfreqnext'][-1]]
+                    defstate['ipfreqtime'].append(nextchangetime)
+                    
+                    if (defstate['ipfreqnext'][-1]+1) == len(defstate['ipfreq']):
+                        defstate['ippoolnow'].append(defstate['ipfreqnext'][-2])
+                        defstate['ipfreqnext'].append(0)
+                        # defstate['ippoolnow'].append(0)
+                        pass
+                    else:
+                        defstate['ippoolnow'].append(defstate['ipfreqnext'][-2])
+                        defstate['ipfreqnext'].append(defstate['ipfreqnext'][-1]+1)
+                        pass
+                    
+                    pass
+                pass
+            pass
+        else:
+            print('MTD reconfigured Error!')
+            pass
+
+
         if env.now % defstate['portfreq'] == 0 and env.now != 0:
             # defstate['needdoneact']['portmutation'] = True
             pass
-        if env.now % defstate['osfreq'] == 0 and env.now != 0:
-            defstate['needdoneact']['osmutation'] = True
+
+        if isinstance(defstate['osfreq'],int):
+            if env.now % defstate['osfreq'] == 0 and env.now != 0:
+                defstate['needdoneact']['osmutation'] = True
+                pass
+        elif isinstance(defstate['osfreq'],list):
+            # print(len(defstate['ipfreqtime']))
+            if len(defstate['osfreqtime']) == 1:
+                if env.now == defstate['osfreqtime'][-1]:
+                    defstate['needdoneact']['osmutation'] = True
+                    nextchangetime = defstate['osfreqtime'][-1]+defstate['osfreq'][defstate['osfreqnext'][-1]]
+                    defstate['osfreqtime'].append(nextchangetime)
+                    defstate['osfreqnext'].append(defstate['osfreqnext'][-1]+1)
+                    pass
+                pass
+            else:
+                if env.now == defstate['osfreqtime'][-1]:
+                    defstate['needdoneact']['osmutation'] = True
+                    nextchangetime = defstate['osfreqtime'][-1]+defstate['osfreq'][defstate['osfreqnext'][-1]]
+                    defstate['osfreqtime'].append(nextchangetime)
+                    if (defstate['osfreqnext'][-1]+1) == len(defstate['osfreq']):
+                        defstate['ospoolnow'].append(defstate['osfreqnext'][-2])
+                        defstate['osfreqnext'].append(0)
+                        pass
+                    else:
+                        defstate['ospoolnow'].append(defstate['osfreqnext'][-2])
+                        defstate['osfreqnext'].append(defstate['osfreqnext'][-1]+1)
+                        pass
+                    
+                    pass
+                pass
             pass
-        if env.now % defstate['serviceplatformfreq'] == 0 and env.now != 0:
-            defstate['needdoneact']['serviceplatformmutation'] = True
+        else:
+            print('MTD reconfigured Error!')
             pass
-        needdoneact = sysutil.get_keys(defstate['needdoneact'], True)
-        return needdoneact
+
+        if isinstance(defstate['serviceplatformfreq'],int):
+            if env.now % defstate['serviceplatformfreq'] == 0 and env.now != 0:
+                defstate['needdoneact']['serviceplatformmutation'] = True
+                pass
+        elif isinstance(defstate['serviceplatformfreq'],list):
+            # print(len(defstate['ipfreqtime']))
+            if len(defstate['serviceplatformfreqtime']) == 1:
+                if env.now == defstate['serviceplatformfreqtime'][-1]:
+                    defstate['needdoneact']['serviceplatformmutation'] = True
+                    nextchangetime = defstate['serviceplatformfreqtime'][-1]+defstate['serviceplatformfreq'][defstate['serviceplatformfreqnext'][-1]]
+                    defstate['serviceplatformfreqtime'].append(nextchangetime)
+                    defstate['serviceplatformfreqnext'].append(defstate['serviceplatformfreqnext'][-1]+1)
+                    pass
+                pass
+            else:
+                if env.now == defstate['serviceplatformfreqtime'][-1]:
+                    defstate['needdoneact']['serviceplatformmutation'] = True
+                    nextchangetime = defstate['serviceplatformfreqtime'][-1]+defstate['serviceplatformfreq'][defstate['serviceplatformfreqnext'][-1]]
+                    defstate['serviceplatformfreqtime'].append(nextchangetime)
+                    if (defstate['serviceplatformfreqnext'][-1]+1) == len(defstate['serviceplatformfreq']):
+                        defstate['serviceplatformpoolnow'].append(defstate['serviceplatformfreqnext'][-2])
+                        defstate['serviceplatformfreqnext'].append(0)
+                        pass
+                    else:
+                        defstate['serviceplatformpoolnow'].append(defstate['serviceplatformfreqnext'][-2])
+                        defstate['serviceplatformfreqnext'].append(defstate['serviceplatformfreqnext'][-1]+1)
+                        pass
+                    
+                    pass
+                pass
+            pass
+        else:
+            print('MTD reconfigured Error!')
+            pass
+        
+        return defstate
 
     def defonce(self, env, deftype, defstate):
         deftypeset = set(deftype)
@@ -137,19 +299,26 @@ class defendermove(object):
     def ipmutation(self, env, ipholdingtime, defstate):  # ip muatation/hopping technique
         #
         defview = globalvar.get_value('defview')
-        ippool = defview['defenders'].objective['ippool']
+        if isinstance(defstate['ippool'],int):
+            ippool = defstate['ippool']
+            pass
+        elif isinstance(defstate['ippool'],list):
+            ippool = defstate['ippool'][defstate['ippoolnow'][-1]]
+            pass
+        # ippool = defview['defenders'].objective['ippool']
+        
         # print(env.now % ipfreq[0])
         for nodeindex in range(len(defview['servernodes'])):
             if 'ipmutation' in defview['servernodes'][nodeindex].nodedeftype:
                 ipbase = defview['servernodes'][nodeindex].ipbase
                 ipold = defview['servernodes'][nodeindex].ip
-                ipnew = ipbase + round(random.uniform(1, ippool[0]))
+                ipnew = ipbase + round(random.uniform(1, ippool))
                 if ipnew >= 256:
                     ipnew = ipnew - 256
                 pass
                 defview['servernodes'][nodeindex].ip = ipnew
                 print("++++++ Defender Action! node: %s IP address in ip_base: %d at time: %d form ip_address_old: %d to ip_address_new: %d in ip_pool: %d ++++++" %
-                      (defview['servernodes'][nodeindex].nodeid, ipbase, env.now, ipold, ipnew, ippool[0]))
+                      (defview['servernodes'][nodeindex].nodeid, ipbase, env.now, ipold, ipnew, ippool))
                 # yield env.timeout(ipholdingtime)
                 defstate['needdoneact']['ipmutation'] = False
                 # when ip mutation successed, cause an interruption which will catch by the attacker move and cause an expection as well.
@@ -168,6 +337,12 @@ class defendermove(object):
 
     def osmutation(self, env, osholdingtime, defstate):  # Os muatation technique
         defview = globalvar.get_value('defview')
+        if isinstance(defstate['ospool'],int):
+            ospool = defstate['ospool']
+            pass
+        elif isinstance(defstate['ospool'],list):
+            ospool = defstate['ospool'][defstate['ospoolnow'][-1]]
+            pass
         ospool = defview['defenders'].objective['ospool']
         # print(defview['vulstate'])
         # print(defview['vulstate']['vulnums']['Windows']['HTTP']['IIS'])
@@ -204,7 +379,13 @@ class defendermove(object):
     # service platform muatation technique
     def serviceplatformmutation(self, env, serviceplatformholdingtime, defstate):
         defview = globalvar.get_value('defview')
-        # serviceplatformpool = defview['defenders'].objective['servicepool']
+        if isinstance(defstate['serviceplatformpool'],int):
+            serviceplatformpool = defstate['serviceplatformpool']
+            pass
+        elif isinstance(defstate['serviceplatformpool'],list):
+            serviceplatformpool = defstate['serviceplatformpool'][defstate['serviceplatformpoolnow'][-1]]
+            pass
+        serviceplatformpool = defview['defenders'].objective['servicepool']
         # print('++++++ Service Platform pool mutation pool is %s ++++++' % (repr(serviceplatformpool)))
         for nodeindex in range(len(defview['servernodes'])):
             serviceplatformpool = defview['defenders'].objective['servicepool'][defview['servernodes'][nodeindex].os][defview['servernodes'][nodeindex].servicetype]
